@@ -136,7 +136,7 @@ lib_libopenvswitch_la_SOURCES = \
 	lib/multipath.c \
 	lib/multipath.h \
 	lib/murmurplatform.c \
-	lib/murmorplatform.h \
+	lib/murmurplatform.h \
 	lib/netdev-dpdk.h \
 	lib/netdev-dummy.c \
 	lib/netdev-provider.h \
