@@ -28,6 +28,10 @@ lib_libopenvswitch_la_SOURCES = \
 	lib/bfd.c \
 	lib/bfd.h \
 	lib/bitmap.h \
+	lib/bloomfilter.c \
+	lib/bloomfilter.h \
+	lib/bloomhashes.c \
+	lib/bloomhashes.h \
 	lib/bundle.c \
 	lib/bundle.h \
 	lib/byte-order.h \
@@ -86,6 +90,8 @@ lib_libopenvswitch_la_SOURCES = \
 	lib/heap.c \
 	lib/heap.h \
 	lib/dynamic-string.c \
+	lib/eliasgamma.c \
+	lib/eliasgamma.h \
 	lib/entropy.c \
 	lib/entropy.h \
 	lib/fat-rwlock.c \
@@ -129,6 +135,8 @@ lib_libopenvswitch_la_SOURCES = \
 	lib/meta-flow.c \
 	lib/multipath.c \
 	lib/multipath.h \
+	lib/murmurplatform.c \
+	lib/murmorplatform.h \
 	lib/netdev-dpdk.h \
 	lib/netdev-dummy.c \
 	lib/netdev-provider.h \
