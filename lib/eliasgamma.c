@@ -1,4 +1,5 @@
 #include "eliasgamma.h"
+#include <config.h>
 #include <arpa/inet.h>
 #include <inttypes.h>
 #include <stdio.h>

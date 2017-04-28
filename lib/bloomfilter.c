@@ -1,4 +1,5 @@
 #include "bloomfilter.h"
+#include <config.h>
 #include <inttypes.h>
 #include <stdio.h>
 

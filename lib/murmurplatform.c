@@ -1,4 +1,5 @@
 #include "murmurplatform.h"
+#include <config.h>
 
 uint32_t rotl32(uint32_t x, int8_t r)
 {
@@ -18,11 +19,4 @@ uint32_t rotr32(uint32_t x, int8_t r)
 uint64_t rotr64(uint64_t x, int8_t r)
 {
     return (x >> r) | (x << (64 - r));
-}
-
-unsigned long long int rdtsc()
-{
-    unsigned long long int x;
-    __asm__ volatile("rdtsc" : "=A"(x));
-    return x;
 }
