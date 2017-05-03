@@ -255,6 +255,15 @@ enum ofp_raw_action_type {
     /* NX1.0-1.4(6): struct nx_action_reg_move, ... VLMFF */
     NXAST_RAW_REG_MOVE,
 
+/* ## ---------------------------- ## */
+/* ## BloomFlow extension actions. ## */
+/* ## ---------------------------- ## */
+
+    /* OF1.0+(44): struct ofp10_action_push_shim_header.
+     *
+     * [Add a shim header between the layer 3 header and layer 3 payload] */
+    OFPAT_RAW_PUSH_SHIM_HEADER,
+
 /* ## ------------------------- ## */
 /* ## Nicira extension actions. ## */
 /* ## ------------------------- ## */
@@ -2166,6 +2175,38 @@ struct onf_action_copy_field {
     uint8_t pad3[4];            /* Not used. */
 };
 OFP_ASSERT(sizeof(struct onf_action_copy_field) == 24);
+
+/* Action structure for OFPAT_PUSH_SHIM_HEADER */
+struct ofp10_action_push_shim_header {
+    ovs_be16 type;       /* OFPAT_PUSH_SHIM_HEADER. */
+    ovs_be16 len;        /* Length is 48. */
+    ovs_be16 shim_len;   /* Length of the shim header which should be added
+                            to packets (as a number of bytes, maximum of 40) */
+    uint8_t shim[40];    /* Binary value of the shim header to be added 
+                            (zero padded if shim_len < 40 bytes) */
+    uint8_t pad[2];
+};
+
+static enum ofperr 
+decode_OFPAT_RAW_PUSH_SHIM_HEADER(const struct ofp10_action_push_shim_header *a, 
+                                  enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
+{
+    struct ofpact_push_shim *push_shim;
+
+    push_shim = ofpact_put_PUSH_SHIM(out);
+    push_shim->ofpact.raw = OFPAT_RAW_PUSH_SHIM_HEADER;
+    memcpy(push_shim->shim, a->shim, 40);
+    return 0; 
+}
+
+static enum ofperr
+encode_PUSH_SHIM(const struct ofpact_push_shim* push_shim, 
+                 enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
+{
+    struct ofp10_action_push_shim_header *psh = put_PUSH_SHIM(out);
+    psh->shim_len = push_shim->shim_len;
+    memcpy(psh->shim, push_shim->shim, 40);
+}
 
 /* Action structure for NXAST_REG_MOVE.
  *

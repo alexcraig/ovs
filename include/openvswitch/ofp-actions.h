@@ -89,6 +89,9 @@ struct vl_mff_map;
     OFPACT(PUSH_MPLS,       ofpact_push_mpls,   ofpact, "push_mpls")    \
     OFPACT(POP_MPLS,        ofpact_pop_mpls,    ofpact, "pop_mpls")     \
                                                                         \
+    /* BloomFlow */                                                     \
+    OFPACT(PUSH_SHIM,       ofpact_push_shim,   ofpact, "push_shim")    \
+                                                                        \
     /* Metadata. */                                                     \
     OFPACT(SET_TUNNEL,      ofpact_tunnel,      ofpact, "set_tunnel")   \
     OFPACT(SET_QUEUE,       ofpact_queue,       ofpact, "set_queue")    \
@@ -939,6 +942,20 @@ struct ofpact_unroll_xlate {
     /* Metadata in xlate context, visible to controller via PACKET_INs. */
     uint8_t  rule_table_id;       /* 0xFF if none. */
     ovs_be64 rule_cookie;         /* OVS_BE64_MAX if none. */
+};
+
+/* ## ---------------------------- ## */
+/* ## BloomFlow extension ofpacts. ## */
+/* ## ---------------------------- ## */
+
+/* OFPACT_PUSH_SHIM_HEADER
+ *
+ * Used for OFPAT_PUSH_SHIM_HEADER */
+struct ofpact_push_shim {
+    struct ofpact ofpact;
+
+    ovs_be16 shim_len;	/* Number of bytes in the shim header to be pushed (max 40) */
+    uint8_t shim[40];   /* Binary data of the shim to be pushed (zero padded if len < 40) */
 };
 
 /* Converting OpenFlow to ofpacts. */
