@@ -476,6 +476,7 @@ ofpact_next_flattened(const struct ofpact *ofpact)
     case OFPACT_WRITE_METADATA:
     case OFPACT_GOTO_TABLE:
     case OFPACT_NAT:
+    case OFPACT_PUSH_SHIM:
         return ofpact_next(ofpact);
 
     case OFPACT_CLONE:
@@ -2195,17 +2196,50 @@ decode_OFPAT_RAW_PUSH_SHIM_HEADER(const struct ofp10_action_push_shim_header *a,
 
     push_shim = ofpact_put_PUSH_SHIM(out);
     push_shim->ofpact.raw = OFPAT_RAW_PUSH_SHIM_HEADER;
+    push_shim->shim_len = a->shim_len;
     memcpy(push_shim->shim, a->shim, 40);
     return 0; 
 }
 
-static enum ofperr
+static void
 encode_PUSH_SHIM(const struct ofpact_push_shim* push_shim, 
                  enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
 {
-    struct ofp10_action_push_shim_header *psh = put_PUSH_SHIM(out);
+    struct ofp10_action_push_shim_header *psh = put_OFPAT_PUSH_SHIM_HEADER(out);
     psh->shim_len = push_shim->shim_len;
     memcpy(psh->shim, push_shim->shim, 40);
+}
+
+static void
+format_PUSH_SHIM(const struct ofpact_push_shim *a, struct ds *s)
+{
+    // TODO(bloomflow): Verfiy endian is handled correctly here and in parse function
+    ds_put_format(s, "%spush_shim:%s%"PRIx16",", colors.param, colors.end,
+        ntohs(a->shim_len));
+    ds_put_hex(s, (void *)(a->shim), 40);
+}
+
+static char * OVS_WARN_UNUSED_RESULT
+parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
+                enum ofputil_protocol *usable_protocols OVS_UNUSED)
+{
+    struct ofpact_push_shim *push_shim;
+    uint16_t shim_len;
+    int error_int;
+    char *shim_len_s, *error, *tail;
+
+    push_shim = ofpact_put_PUSH_SHIM(ofpacts);
+    shim_len_s = strsep(&arg, ",");
+    error = str_to_u16(shim_len_s, "push_shim", &shim_len);
+    if(!error) {
+        push_shim->shim_len = htons(shim_len);
+        // arg now points to the first char after the ',' delimeter
+        error_int = parse_int_string(arg, push_shim->shim, ntohs(push_shim->shim_len), &tail);
+        if (error_int) {
+            return xasprintf("%s: could not extract shim header bytes", arg);
+        }
+    }
+    return error;
 }
 
 /* Action structure for NXAST_REG_MOVE.
@@ -6455,6 +6489,7 @@ ofpact_is_set_or_move_action(const struct ofpact *a)
     case OFPACT_WRITE_ACTIONS:
     case OFPACT_WRITE_METADATA:
     case OFPACT_DEBUG_RECIRC:
+    case OFPACT_PUSH_SHIM:
         return false;
     default:
         OVS_NOT_REACHED();
@@ -6494,6 +6529,7 @@ ofpact_is_allowed_in_actions_set(const struct ofpact *a)
     case OFPACT_SET_VLAN_PCP:
     case OFPACT_SET_VLAN_VID:
     case OFPACT_STRIP_VLAN:
+    case OFPACT_PUSH_SHIM:
         return true;
 
     /* In general these actions are excluded because they are not part of
@@ -6742,6 +6778,7 @@ ovs_instruction_type_from_ofpact_type(enum ofpact_type type)
     case OFPACT_CT:
     case OFPACT_CT_CLEAR:
     case OFPACT_NAT:
+    case OFPACT_PUSH_SHIM:
     default:
         return OVSINST_OFPIT11_APPLY_ACTIONS;
     }
@@ -7387,6 +7424,9 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
     case OFPACT_DEBUG_RECIRC:
         return 0;
 
+    case OFPACT_PUSH_SHIM:
+        return 0;
+
     default:
         OVS_NOT_REACHED();
     }
@@ -7875,6 +7915,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, ofp_port_t port)
     case OFPACT_CT:
     case OFPACT_CT_CLEAR:
     case OFPACT_NAT:
+    case OFPACT_PUSH_SHIM:
     default:
         return false;
     }
