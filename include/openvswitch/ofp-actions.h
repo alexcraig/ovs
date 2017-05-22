@@ -954,7 +954,7 @@ struct ofpact_unroll_xlate {
 struct ofpact_push_shim {
     struct ofpact ofpact;
 
-    ovs_be16 shim_len;	/* Number of bytes in the shim header to be pushed (max 40) */
+    uint16_t shim_len;	/* Number of bytes in the shim header to be pushed (max 40) */
     uint8_t shim[40];   /* Binary data of the shim to be pushed (zero padded if len < 40) */
 };
 

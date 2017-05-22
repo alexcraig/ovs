@@ -2196,7 +2196,7 @@ decode_OFPAT_RAW_PUSH_SHIM_HEADER(const struct ofp10_action_push_shim_header *a,
 
     push_shim = ofpact_put_PUSH_SHIM(out);
     push_shim->ofpact.raw = OFPAT_RAW_PUSH_SHIM_HEADER;
-    push_shim->shim_len = a->shim_len;
+    push_shim->shim_len = ntohs(a->shim_len);
     memcpy(push_shim->shim, a->shim, 40);
     return 0; 
 }
@@ -2206,7 +2206,7 @@ encode_PUSH_SHIM(const struct ofpact_push_shim* push_shim,
                  enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
 {
     struct ofp10_action_push_shim_header *psh = put_OFPAT_PUSH_SHIM_HEADER(out);
-    psh->shim_len = push_shim->shim_len;
+    psh->shim_len = htons(push_shim->shim_len);
     memcpy(psh->shim, push_shim->shim, 40);
 }
 
@@ -2215,7 +2215,7 @@ format_PUSH_SHIM(const struct ofpact_push_shim *a, struct ds *s)
 {
     // TODO(bloomflow): Verfiy endian is handled correctly here and in parse function
     ds_put_format(s, "%spush_shim:%s%"PRIx16",", colors.param, colors.end,
-        ntohs(a->shim_len));
+        a->shim_len);
     ds_put_hex(s, (void *)(a->shim), 40);
 }
 
@@ -2232,7 +2232,7 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     shim_len_s = strsep(&arg, ",");
     error = str_to_u16(shim_len_s, "push_shim", &shim_len);
     if(!error) {
-        push_shim->shim_len = htons(shim_len);
+        push_shim->shim_len = shim_len;
         // arg now points to the first char after the ',' delimeter
         error_int = parse_int_string(arg, push_shim->shim, ntohs(push_shim->shim_len), &tail);
         if (error_int) {
