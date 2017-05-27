@@ -287,6 +287,8 @@ void set_mpls_lse(struct dp_packet *, ovs_be32 label);
 void push_mpls(struct dp_packet *packet, ovs_be16 ethtype, ovs_be32 lse);
 void pop_mpls(struct dp_packet *, ovs_be16 ethtype);
 
+void push_shim(struct dp_packet *, uint16_t shim_len, uint8_t* shim);
+
 void set_mpls_lse_ttl(ovs_be32 *lse, uint8_t ttl);
 void set_mpls_lse_tc(ovs_be32 *lse, uint8_t tc);
 void set_mpls_lse_label(ovs_be32 *lse, ovs_be32 label);

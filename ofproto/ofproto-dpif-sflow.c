@@ -1150,6 +1150,10 @@ dpif_sflow_read_actions(const struct flow *flow,
 	     */
 	    break;
 
+	case OVS_ACTION_ATTR_PUSH_SHIM:
+	    // TODO(bloomflow): Verify that no action is required here
+	    break;
+
 	case OVS_ACTION_ATTR_PUSH_MPLS: {
 	    const struct ovs_action_push_mpls *mpls = nl_attr_get(a);
 	    if (mpls) {

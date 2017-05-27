@@ -547,6 +547,7 @@ requires_datapath_assistance(const struct nlattr *a)
     case OVS_ACTION_ATTR_SET_MASKED:
     case OVS_ACTION_ATTR_PUSH_VLAN:
     case OVS_ACTION_ATTR_POP_VLAN:
+    case OVS_ACTION_ATTR_PUSH_SHIM:
     case OVS_ACTION_ATTR_SAMPLE:
     case OVS_ACTION_ATTR_HASH:
     case OVS_ACTION_ATTR_PUSH_MPLS:
@@ -632,6 +633,10 @@ odp_execute_actions(void *dp, struct dp_packet_batch *batch, bool steal,
             for (i = 0; i < cnt; i++) {
                 eth_pop_vlan(packets[i]);
             }
+            break;
+
+	case OVS_ACTION_ATTR_PUSH_SHIM:
+	    // TODO(bloomflow): Not supported in userspace datapath at this time
             break;
 
         case OVS_ACTION_ATTR_PUSH_MPLS: {

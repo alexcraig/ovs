@@ -2234,7 +2234,7 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     if(!error) {
         push_shim->shim_len = shim_len;
         // arg now points to the first char after the ',' delimeter
-        error_int = parse_int_string(arg, push_shim->shim, ntohs(push_shim->shim_len), &tail);
+        error_int = parse_int_string(arg, push_shim->shim, push_shim->shim_len, &tail);
         if (error_int) {
             return xasprintf("%s: could not extract shim header bytes", arg);
         }

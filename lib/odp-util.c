@@ -115,6 +115,7 @@ odp_action_len(uint16_t type)
     case OVS_ACTION_ATTR_POP_VLAN: return 0;
     case OVS_ACTION_ATTR_PUSH_MPLS: return sizeof(struct ovs_action_push_mpls);
     case OVS_ACTION_ATTR_POP_MPLS: return sizeof(ovs_be16);
+    case OVS_ACTION_ATTR_PUSH_SHIM: return sizeof(struct ovs_action_push_shim);
     case OVS_ACTION_ATTR_RECIRC: return sizeof(uint32_t);
     case OVS_ACTION_ATTR_HASH: return sizeof(struct ovs_action_hash);
     case OVS_ACTION_ATTR_SET: return ATTR_LEN_VARIABLE;
@@ -852,6 +853,13 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
         ds_put_cstr(ds, "push_mpls(");
         format_mpls_lse(ds, mpls->mpls_lse);
         ds_put_format(ds, ",eth_type=0x%"PRIx16")", ntohs(mpls->mpls_ethertype));
+        break;
+    }
+    case OVS_ACTION_ATTR_PUSH_SHIM: {
+        const struct ovs_action_push_shim *act_shim = nl_attr_get(a);
+        ds_put_format(ds, "push_shim(shim_len=%"PRIx16",shim=", act_shim->shim_len);
+        ds_put_hex(ds, (void*)(act_shim->shim), 40);
+        ds_put_cstr(ds, ")");
         break;
     }
     case OVS_ACTION_ATTR_POP_MPLS: {
@@ -1657,6 +1665,26 @@ parse_odp_action(const char *s, const struct simap *port_names,
             nl_msg_put_unspec(actions, OVS_ACTION_ATTR_PUSH_VLAN,
                               &push, sizeof push);
 
+            return n;
+        }
+    }
+
+    {
+        struct ovs_action_push_shim act_shim;
+        int shim_len;
+        int n = -1;
+        int error_int;
+        char *tail;
+
+        if(ovs_scan(s, "push_shim(shim_len=%i,0x%n", &shim_len, &n)) {
+            act_shim.shim_len = (uint16_t)shim_len;
+            error_int = parse_int_string(&(s[n]), act_shim.shim, act_shim.shim_len, &tail);
+            if (error_int) {
+                return -EINVAL;
+            }
+
+            nl_msg_put_unspec(actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_shim, sizeof act_shim);
+            n = n + 41; // Shim hex string is 40 characters + terminating ')' char
             return n;
         }
     }
