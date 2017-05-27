@@ -1676,7 +1676,7 @@ parse_odp_action(const char *s, const struct simap *port_names,
         int error_int;
         char *tail;
 
-        if(ovs_scan(s, "push_shim(shim_len=%i,0x%n", &shim_len, &n)) {
+        if(ovs_scan(s, "push_shim(shim_len=%i,shim=0x%n", &shim_len, &n)) {
             act_shim.shim_len = (uint16_t)shim_len;
             error_int = parse_int_string(&(s[n]), act_shim.shim, act_shim.shim_len, &tail);
             if (error_int) {
