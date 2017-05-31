@@ -650,6 +650,16 @@ enum ovs_hash_alg {
 	OVS_HASH_ALG_L4,
 };
 
+/**
+ * struct ovs_action_push_shim - %OVS_ACTION_ATTR_PUSH_SHIM action argument
+ * @shim_len: Length (in bytes) of the shim header to push
+ * @shim: Binary contents to push (padded with zeroes if shim_len < 40)
+ */
+struct ovs_action_push_shim {
+	uint16_t shim_len;
+	uint8_t shim[40];
+};
+
 /*
  * struct ovs_action_hash - %OVS_ACTION_ATTR_HASH action argument.
  * @hash_alg: Algorithm used to compute hash prior to recirculation.
@@ -758,6 +768,7 @@ enum ovs_nat_attr {
  * @OVS_ACTION_ATTR_PUSH_VLAN: Push a new outermost 802.1Q header onto the
  * packet.
  * @OVS_ACTION_ATTR_POP_VLAN: Pop the outermost 802.1Q header off the packet.
+ * @OVS_ACTION_ATTR_PUSH_SHIM: Push shim data into the IP options field
  * @OVS_ACTION_ATTR_SAMPLE: Probabilitically executes actions, as specified in
  * the nested %OVS_SAMPLE_ATTR_* attributes.
  * @OVS_ACTION_ATTR_SET: Replaces the contents of an existing header.  The
@@ -803,6 +814,7 @@ enum ovs_action_attr {
 	OVS_ACTION_ATTR_SET,          /* One nested OVS_KEY_ATTR_*. */
 	OVS_ACTION_ATTR_PUSH_VLAN,    /* struct ovs_action_push_vlan. */
 	OVS_ACTION_ATTR_POP_VLAN,     /* No argument. */
+	OVS_ACTION_ATTR_PUSH_SHIM,    /* struct ovs_action_push_shim */
 	OVS_ACTION_ATTR_SAMPLE,       /* Nested OVS_SAMPLE_ATTR_*. */
 	OVS_ACTION_ATTR_RECIRC,       /* u32 recirc_id. */
 	OVS_ACTION_ATTR_HASH,	      /* struct ovs_action_hash. */
