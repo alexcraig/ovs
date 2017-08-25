@@ -2214,7 +2214,7 @@ static void
 format_PUSH_SHIM(const struct ofpact_push_shim *a, struct ds *s)
 {
     // TODO(bloomflow): Verfiy endian is handled correctly here and in parse function
-    ds_put_format(s, "%spush_shim:%s%"PRIx16",", colors.param, colors.end,
+    ds_put_format(s, "%spush_shim:%s%"PRIx16":", colors.param, colors.end,
         a->shim_len);
     ds_put_hex(s, (void *)(a->shim), 40);
 }
@@ -2229,7 +2229,7 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     char *shim_len_s, *error, *tail;
 
     push_shim = ofpact_put_PUSH_SHIM(ofpacts);
-    shim_len_s = strsep(&arg, ",");
+    shim_len_s = strsep(&arg, ":");
     error = str_to_u16(shim_len_s, "push_shim", &shim_len);
     if(!error) {
         push_shim->shim_len = shim_len;
@@ -2238,6 +2238,10 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
         if (error_int) {
             return xasprintf("%s: could not extract shim header bytes", arg);
         }
+    } else {
+	free(error);
+	error = NULL;
+        return xasprintf("%s: could not extract shim header length", arg);
     }
     return error;
 }
