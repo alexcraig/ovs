@@ -4726,6 +4726,7 @@ freeze_unroll_actions(const struct ofpact *a, const struct ofpact *end,
         case OFPACT_CT_CLEAR:
         case OFPACT_NAT:
         case OFPACT_PUSH_SHIM:
+        case OFPACT_POP_SHIM:
             /* These may not generate PACKET INs. */
             break;
 
@@ -4935,7 +4936,6 @@ recirc_for_mpls(const struct ofpact *a, struct xlate_ctx *ctx)
     case OFPACT_SET_ETH_DST:
     case OFPACT_SET_TUNNEL:
     case OFPACT_SET_QUEUE:
-    case OFPACT_PUSH_SHIM:
     /* If actions of a group require recirculation that can be detected
      * when translating them. */
     case OFPACT_GROUP:
@@ -4990,6 +4990,8 @@ recirc_for_mpls(const struct ofpact *a, struct xlate_ctx *ctx)
     case OFPACT_WRITE_ACTIONS:
     case OFPACT_WRITE_METADATA:
     case OFPACT_GOTO_TABLE:
+    case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
     default:
         break;
     }
@@ -5303,8 +5305,12 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
 
 	case OFPACT_PUSH_SHIM:
 	    /* Nothing to do (shim hdr is not included as part of flow key) */
-            // TODO(bloomflow): Verify that nothing actually needs to be done here
+            // TODO bloomflow: Verify that nothing actually needs to be done here
 	    break;
+
+        case OFPACT_POP_SHIM:
+	    /* Nothing to do. */
+            break;
 
         case OFPACT_NOTE:
             /* Nothing to do. */

@@ -1151,7 +1151,8 @@ dpif_sflow_read_actions(const struct flow *flow,
 	    break;
 
 	case OVS_ACTION_ATTR_PUSH_SHIM:
-	    // TODO(bloomflow): Verify that no action is required here
+        case OVS_ACTION_ATTR_POP_SHIM:
+	    // TODO bloomflow: Verify that no action is required here
 	    break;
 
 	case OVS_ACTION_ATTR_PUSH_MPLS: {

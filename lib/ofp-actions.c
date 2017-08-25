@@ -261,8 +261,13 @@ enum ofp_raw_action_type {
 
     /* OF1.0+(44): struct ofp10_action_push_shim_header.
      *
-     * [Add a shim header between the layer 3 header and layer 3 payload] */
+     * [Add a shim header between the layer 3 header and payload] */
     OFPAT_RAW_PUSH_SHIM_HEADER,
+
+    /* OF1.0+(45): struct ofp10_action_pop_shim_header.
+     *
+     * [Strips one or more shim header stages from between the layer 3 header and payload] */
+    OFPAT_RAW_POP_SHIM_HEADER,
 
 /* ## ------------------------- ## */
 /* ## Nicira extension actions. ## */
@@ -477,6 +482,7 @@ ofpact_next_flattened(const struct ofpact *ofpact)
     case OFPACT_GOTO_TABLE:
     case OFPACT_NAT:
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
         return ofpact_next(ofpact);
 
     case OFPACT_CLONE:
@@ -2187,6 +2193,7 @@ struct ofp10_action_push_shim_header {
                             (zero padded if shim_len < 40 bytes) */
     uint8_t pad[2];
 };
+OFP_ASSERT(sizeof(struct ofp10_action_push_shim_header) == 48);
 
 static enum ofperr 
 decode_OFPAT_RAW_PUSH_SHIM_HEADER(const struct ofp10_action_push_shim_header *a, 
@@ -2213,8 +2220,7 @@ encode_PUSH_SHIM(const struct ofpact_push_shim* push_shim,
 static void
 format_PUSH_SHIM(const struct ofpact_push_shim *a, struct ds *s)
 {
-    // TODO(bloomflow): Verfiy endian is handled correctly here and in parse function
-    ds_put_format(s, "%spush_shim:%s%"PRIx16":", colors.param, colors.end,
+    ds_put_format(s, "%spush_shim:%s%d:", colors.param, colors.end,
         a->shim_len);
     ds_put_hex(s, (void *)(a->shim), 40);
 }
@@ -2227,24 +2233,87 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     uint16_t shim_len;
     int error_int;
     char *shim_len_s, *error, *tail;
+    char *arg_copy = malloc((strlen(arg)+1) * sizeof(char));
+    char *arg_copy_orig = arg_copy;
 
+    strcpy(arg_copy, arg);
     push_shim = ofpact_put_PUSH_SHIM(ofpacts);
-    shim_len_s = strsep(&arg, ":");
+    shim_len_s = strsep(&arg_copy, ":");
     error = str_to_u16(shim_len_s, "push_shim", &shim_len);
     if(!error) {
         push_shim->shim_len = shim_len;
-        // arg now points to the first char after the ',' delimeter
-        error_int = parse_int_string(arg, push_shim->shim, push_shim->shim_len, &tail);
+        // arg_copy now points to the first char after the ',' delimeter
+        error_int = parse_int_string(arg_copy, push_shim->shim, push_shim->shim_len, &tail);
         if (error_int) {
+	    free(arg_copy_orig);
             return xasprintf("%s: could not extract shim header bytes", arg);
         }
     } else {
+        free(arg_copy_orig);
 	free(error);
 	error = NULL;
         return xasprintf("%s: could not extract shim header length", arg);
     }
+    // VLOG_WARN_RL(&rl, "free_3");
+    free(arg_copy_orig);
     return error;
 }
+
+/* Action structure for OFPAT_POP_SHIM_HEADER */
+struct ofp10_action_pop_shim_header {
+    ovs_be16 type;       /* OFPAT_POP_SHIM_HEADER. */
+    ovs_be16 len;        /* Length is 8 */
+    ovs_be16 num_stages; /* Number of shim header stages to remove. 0 removes all stages */
+    uint8_t pad[2];
+};
+OFP_ASSERT(sizeof(struct ofp10_action_pop_shim_header) == 8);
+
+static enum ofperr 
+decode_OFPAT_RAW_POP_SHIM_HEADER(const struct ofp10_action_pop_shim_header *a, 
+                                  enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
+{
+    struct ofpact_pop_shim *pop_shim;
+    pop_shim = ofpact_put_POP_SHIM(out);
+    pop_shim->ofpact.raw = OFPAT_RAW_POP_SHIM_HEADER;
+    pop_shim->num_stages = ntohs(a->num_stages);
+    return 0; 
+}
+
+static void
+encode_POP_SHIM(const struct ofpact_pop_shim* pop_shim, 
+                 enum ofp_version ofp_version OVS_UNUSED, struct ofpbuf *out)
+{
+    struct ofp10_action_pop_shim_header *pop = put_OFPAT_POP_SHIM_HEADER(out);
+    pop->num_stages = htons(pop_shim->num_stages);
+}
+
+static void
+format_POP_SHIM(const struct ofpact_pop_shim *a, struct ds *s)
+{
+    ds_put_format(s, "%spop_shim:%s%d", colors.param, colors.end,
+        a->num_stages);
+}
+
+static char * OVS_WARN_UNUSED_RESULT
+parse_POP_SHIM(char *arg, struct ofpbuf *ofpacts,
+                enum ofputil_protocol *usable_protocols OVS_UNUSED)
+{
+    struct ofpact_pop_shim *pop_shim;
+    uint16_t num_stages;
+    char *error = NULL;
+
+    pop_shim = ofpact_put_POP_SHIM(ofpacts);
+    error = str_to_u16(arg, "pop_shim", &num_stages);
+    if(!error) {
+	pop_shim->num_stages = num_stages;
+    } else {
+	free(error);
+	error = NULL;
+        return xasprintf("%s: could not extract num_stages for pop_shim", arg);
+    }
+    return NULL;
+}
+
 
 /* Action structure for NXAST_REG_MOVE.
  *
@@ -6494,6 +6563,7 @@ ofpact_is_set_or_move_action(const struct ofpact *a)
     case OFPACT_WRITE_METADATA:
     case OFPACT_DEBUG_RECIRC:
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
         return false;
     default:
         OVS_NOT_REACHED();
@@ -6534,6 +6604,7 @@ ofpact_is_allowed_in_actions_set(const struct ofpact *a)
     case OFPACT_SET_VLAN_VID:
     case OFPACT_STRIP_VLAN:
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
         return true;
 
     /* In general these actions are excluded because they are not part of
@@ -6783,6 +6854,7 @@ ovs_instruction_type_from_ofpact_type(enum ofpact_type type)
     case OFPACT_CT_CLEAR:
     case OFPACT_NAT:
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
     default:
         return OVSINST_OFPIT11_APPLY_ACTIONS;
     }
@@ -7429,6 +7501,8 @@ ofpact_check__(enum ofputil_protocol *usable_protocols, struct ofpact *a,
         return 0;
 
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
+        /* TODO bloomflow: Double check that nothing needs to be validated here */
         return 0;
 
     default:
@@ -7920,6 +7994,7 @@ ofpact_outputs_to_port(const struct ofpact *ofpact, ofp_port_t port)
     case OFPACT_CT_CLEAR:
     case OFPACT_NAT:
     case OFPACT_PUSH_SHIM:
+    case OFPACT_POP_SHIM:
     default:
         return false;
     }

@@ -116,6 +116,7 @@ odp_action_len(uint16_t type)
     case OVS_ACTION_ATTR_PUSH_MPLS: return sizeof(struct ovs_action_push_mpls);
     case OVS_ACTION_ATTR_POP_MPLS: return sizeof(ovs_be16);
     case OVS_ACTION_ATTR_PUSH_SHIM: return sizeof(struct ovs_action_push_shim);
+    case OVS_ACTION_ATTR_POP_SHIM: return sizeof(struct ovs_action_pop_shim);
     case OVS_ACTION_ATTR_RECIRC: return sizeof(uint32_t);
     case OVS_ACTION_ATTR_HASH: return sizeof(struct ovs_action_hash);
     case OVS_ACTION_ATTR_SET: return ATTR_LEN_VARIABLE;
@@ -860,6 +861,11 @@ format_odp_action(struct ds *ds, const struct nlattr *a)
         ds_put_format(ds, "push_shim(shim_len=%"PRIx16",shim=", act_shim->shim_len);
         ds_put_hex(ds, (void*)(act_shim->shim), 40);
         ds_put_cstr(ds, ")");
+        break;
+    }
+    case OVS_ACTION_ATTR_POP_SHIM: {
+	const struct ovs_action_pop_shim *act_shim = nl_attr_get(a);
+        ds_put_format(ds, "pop_shim(num_stages=%"PRIx16")", act_shim->num_stages);
         break;
     }
     case OVS_ACTION_ATTR_POP_MPLS: {

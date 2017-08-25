@@ -91,6 +91,7 @@ struct vl_mff_map;
                                                                         \
     /* BloomFlow */                                                     \
     OFPACT(PUSH_SHIM,       ofpact_push_shim,   ofpact, "push_shim")    \
+    OFPACT(POP_SHIM,        ofpact_pop_shim,    ofpact, "pop_shim")     \
                                                                         \
     /* Metadata. */                                                     \
     OFPACT(SET_TUNNEL,      ofpact_tunnel,      ofpact, "set_tunnel")   \
@@ -956,6 +957,15 @@ struct ofpact_push_shim {
 
     uint16_t shim_len;	/* Number of bytes in the shim header to be pushed (max 40) */
     uint8_t shim[40];   /* Binary data of the shim to be pushed (zero padded if len < 40) */
+};
+
+/* OFPACT_POP_SHIM_HEADER
+ *
+ * Used for OFPAT_PUSH_SHIM_HEADER */
+struct ofpact_pop_shim {
+    struct ofpact ofpact;
+
+    uint16_t num_stages; /* Number of shim header stages to remove */
 };
 
 /* Converting OpenFlow to ofpacts. */

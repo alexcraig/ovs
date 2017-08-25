@@ -1176,7 +1176,8 @@ dpif_execute_helper_cb(void *aux_, struct dp_packet_batch *packets_,
     case OVS_ACTION_ATTR_HASH:
     case OVS_ACTION_ATTR_PUSH_VLAN:
     case OVS_ACTION_ATTR_POP_VLAN:
-    case OVS_ACTION_ATTR_PUSH_SHIM:	// TODO(bloomflow): Double check that nothing needs to be done here
+    case OVS_ACTION_ATTR_PUSH_SHIM:	// TODO bloomflow: Double check that nothing needs to be done here
+    case OVS_ACTION_ATTR_POP_SHIM:
     case OVS_ACTION_ATTR_PUSH_MPLS:
     case OVS_ACTION_ATTR_POP_MPLS:
     case OVS_ACTION_ATTR_SET:
