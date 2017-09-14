@@ -5304,8 +5304,12 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
 	case OFPACT_PUSH_SHIM:
-	    /* Nothing to do (shim hdr is not included as part of flow key) */
-            // TODO bloomflow: Verify that nothing actually needs to be done here
+            VLOG_WARN("BF_DEBUG: Composing PUSH_SHIM action");
+	    struct ofpact_push_shim *shim = ofpact_get_PUSH_SHIM(a);
+            struct ovs_action_push_shim act_shim;
+            act_shim.shim_len = shim->shim_len;
+            memcpy(act_shim.shim, shim->shim, shim->shim_len);
+            nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_shim, sizeof act_shim);
 	    break;
 
         case OFPACT_POP_SHIM:
@@ -5680,6 +5684,8 @@ xlate_actions(struct xlate_in *xin, struct xlate_out *xout)
         .slow = 0,
         .recircs = RECIRC_REFS_EMPTY_INITIALIZER,
     };
+
+    VLOG_WARN("BF_DEBUG: xlate_actions called");
 
     struct xlate_cfg *xcfg = ovsrcu_get(struct xlate_cfg *, &xcfgp);
     struct xbridge *xbridge = xbridge_lookup(xcfg, xin->ofproto);
