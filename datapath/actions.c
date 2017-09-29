@@ -29,6 +29,7 @@
 #include <linux/in6.h>
 #include <linux/if_arp.h>
 #include <linux/if_vlan.h>
+#include <linux/printk.h>
 
 #include <net/dst.h>
 #include <net/ip.h>
@@ -184,6 +185,48 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
 	skb->protocol = mpls->mpls_ethertype;
 
 	invalidate_flow_key(key);
+	return 0;
+}
+
+static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
+		     const struct ovs_action_push_shim *push_shim)
+{
+	struct iphdr* ip_header;
+	uint16_t push_hdr_len = push_shim->shim_len;
+
+	// Round the number of bytes to push up to the next multiple of 4
+	if(push_hdr_len % 4 != 0) {
+            push_hdr_len = push_hdr_len + (4 - (push_hdr_len % 4));
+        }
+
+	pr_info("BF_DEBUG: push_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
+	// TODO: Code currently assumes IP options field in matched skb is empty,
+	// behaviour undefined if this is not the case
+
+	if (skb_cow_head(skb, push_hdr_len) < 0)
+		return -ENOMEM;
+
+	// Add buffer space to the start of the SKB, and shift the ethernet + IP header
+	// left
+	skb_push(skb, push_hdr_len);
+	memmove(skb_mac_header(skb) - push_hdr_len, skb_mac_header(skb), skb->mac_len + (ip_hdr(skb)->ihl*4));
+	skb_reset_mac_header(skb);
+	skb_set_network_header(skb, skb->mac_len);
+	
+	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_hdr_len);
+
+	ip_header = ip_hdr(skb);
+	ip_header->tot_len = ip_header->tot_len + push_hdr_len;
+	ip_header->ihl = ip_header->ihl + ((push_hdr_len / 4) & 0x0F);
+
+	skb_set_transport_header(skb, skb->mac_len + (ip_hdr(skb)->ihl*4));
+
+	// TODO: Recalculate checksums
+	ip_header->check = 0;
+	ip_send_check(ip_header);
+
+	pr_info("BF_DEBUG: push_shim completed successfully\n");
+	//invalidate_flow_key(key);
 	return 0;
 }
 
@@ -1087,10 +1130,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	const struct nlattr *a;
 	int rem;
 
+	pr_info("BF_DEBUG: do_execute_actions called\n");
+
 	for (a = attr, rem = len; rem > 0;
 	     a = nla_next(a, &rem)) {
 		int err = 0;
-
+		pr_info("BF_DEBUG: nla_type == %d", nla_type(a));
 		if (unlikely(prev_port != -1)) {
 			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
 
@@ -1103,6 +1148,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		switch (nla_type(a)) {
 		case OVS_ACTION_ATTR_OUTPUT:
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT");
 			prev_port = nla_get_u32(a);
 			break;
 
@@ -1115,6 +1161,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		}
 
 		case OVS_ACTION_ATTR_USERSPACE:
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_USERSPACE");
 			output_userspace(dp, skb, key, a, attr,
 						     len, OVS_CB(skb)->cutlen);
 			OVS_CB(skb)->cutlen = 0;
@@ -1125,11 +1172,17 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_MPLS:
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_MPLS");
 			err = push_mpls(skb, key, nla_data(a));
 			break;
 
 		case OVS_ACTION_ATTR_POP_MPLS:
 			err = pop_mpls(skb, key, nla_get_be16(a));
+			break;
+
+		case OVS_ACTION_ATTR_PUSH_SHIM:
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
+			err = push_shim(skb, key, nla_data(a));
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_VLAN:
@@ -1182,15 +1235,19 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		if (unlikely(err)) {
 			kfree_skb(skb);
+			pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
 			return err;
 		}
 	}
 
-	if (prev_port != -1)
+	if (prev_port != -1) {
+		pr_info("BF_DEBUG: do_output called**\n");
 		do_output(dp, skb, prev_port, key);
-	else
+	} else {
 		consume_skb(skb);
+	}
 
+	pr_info("BF_DEBUG: do_execute_actions returned\n");
 	return 0;
 }
 
@@ -1226,7 +1283,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			struct sw_flow_key *key)
 {
 	int err, level;
-
+	pr_info("BF_DEBUG: ovs_execute_actions called");
 	level = __this_cpu_inc_return(exec_actions_level);
 	if (unlikely(level > OVS_RECURSION_LIMIT)) {
 		net_crit_ratelimited("ovs: recursion limit reached on datapath %s, probable configuration error\n",

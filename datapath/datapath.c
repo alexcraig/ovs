@@ -267,13 +267,15 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	struct dp_stats_percpu *stats;
 	u64 *stats_counter;
 	u32 n_mask_hit;
-
+	
+	pr_info("BF_DEBUG: ovs_dp_process_packet called");
 	stats = this_cpu_ptr(dp->stats_percpu);
 
 	/* Look up flow. */
 	flow = ovs_flow_tbl_lookup_stats(&dp->table, key, skb_get_hash(skb),
 					 &n_mask_hit);
 	if (unlikely(!flow)) {
+		pr_info("BF_DEBUG: NO FLOW FOUND");
 		struct dp_upcall_info upcall;
 		int error;
 
@@ -289,9 +291,11 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		stats_counter = &stats->n_missed;
 		goto out;
 	}
-
+	
+	pr_info("BF_DEBUG: FOUND FLOW");
 	ovs_flow_stats_update(flow, key->tp.flags, skb);
 	sf_acts = rcu_dereference(flow->sf_acts);
+        pr_info("BF_DEBUG: ovs_execute_actions called by ovs_dp_process_packet");
 	ovs_execute_actions(dp, skb, sf_acts, key);
 
 	stats_counter = &stats->n_hit;
@@ -438,6 +442,8 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 	size_t len;
 	unsigned int hlen;
 	int err, dp_ifindex;
+
+	pr_info("BF_DEBUG: queue_userspace_packet called");
 
 	dp_ifindex = get_dpifindex(dp);
 	if (!dp_ifindex)

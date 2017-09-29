@@ -2235,7 +2235,7 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     char *shim_len_s, *error, *tail;
     char *arg_copy = malloc((strlen(arg)+1) * sizeof(char));
     char *arg_copy_orig = arg_copy;
-
+    VLOG_WARN("BF_DEBUG: parse_PUSH_SHIM");
     strcpy(arg_copy, arg);
     push_shim = ofpact_put_PUSH_SHIM(ofpacts);
     shim_len_s = strsep(&arg_copy, ":");
