@@ -3615,6 +3615,9 @@ xlate_bloomflow_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
     struct ofputil_bucket *bucket;
     uint32_t basis;
     
+    // Force slow path to ensure that bucket selection gets re-evaluated for each packet
+    ctx->xout->slow |= SLOW_CONTROLLER;    
+
     basis = (uint32_t)random_uint16();
     VLOG_WARN("BF_DEBUG: xlate_bloomflow_select_group basis = %d", basis);
     bucket = group_best_live_bucket(ctx, group, basis);
