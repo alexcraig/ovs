@@ -3600,6 +3600,7 @@ xlate_default_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
     basis = flow_hash_symmetric_l4(&ctx->xin->flow, 0);
     flow_mask_hash_fields(&ctx->xin->flow, wc, NX_HASH_FIELDS_SYMMETRIC_L4);
     bucket = group_best_live_bucket(ctx, group, basis);
+    
     if (bucket) {
         xlate_group_bucket(ctx, bucket);
         xlate_group_stats(ctx, group, bucket);
@@ -3607,6 +3608,25 @@ xlate_default_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
         ofproto_group_unref(&group->up);
     }
 }
+
+static void
+xlate_bloomflow_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
+{
+    struct ofputil_bucket *bucket;
+    uint32_t basis;
+    
+    basis = (uint32_t)random_uint16();
+    VLOG_WARN("BF_DEBUG: xlate_bloomflow_select_group basis = %d", basis);
+    bucket = group_best_live_bucket(ctx, group, basis);
+
+    if (bucket) {
+        xlate_group_bucket(ctx, bucket);
+        xlate_group_stats(ctx, group, bucket);
+    } else if (ctx->xin->xcache) {
+        ofproto_group_unref(&group->up);
+    }
+}
+
 
 static void
 xlate_hash_fields_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
@@ -3691,14 +3711,17 @@ xlate_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
 {
     const char *selection_method = group->up.props.selection_method;
 
+    VLOG_WARN("BF_DEBUG: xlate_select_group called");
     /* Select groups may access flow keys beyond L2 in order to
      * select a bucket. Recirculate as appropriate to make this possible.
      */
     if (ctx->was_mpls) {
         ctx_trigger_freeze(ctx);
     }
-
+    
     if (selection_method[0] == '\0') {
+        xlate_bloomflow_select_group(ctx, group);
+    } else if (!strcasecmp("default", selection_method)) {
         xlate_default_select_group(ctx, group);
     } else if (!strcasecmp("hash", selection_method)) {
         xlate_hash_fields_select_group(ctx, group);
@@ -4615,6 +4638,7 @@ xlate_write_actions(struct xlate_ctx *ctx, const struct ofpact_nest *a)
 static void
 xlate_action_set(struct xlate_ctx *ctx)
 {
+    VLOG_WARN("BF_DEBUG: xlate_action_set called");
     uint64_t action_list_stub[1024 / 8];
     struct ofpbuf action_list = OFPBUF_STUB_INITIALIZER(action_list_stub);
     ofpacts_execute_action_set(&action_list, &ctx->action_set);
@@ -5074,6 +5098,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             xlate_report(ctx, OFT_ACTION, "%s", ds_cstr(&s));
             ds_destroy(&s);
         }
+	VLOG_WARN("BF_DEBUG: do_xlate_actions a->type: %d", a->type);
 
         switch (a->type) {
         case OFPACT_OUTPUT:
