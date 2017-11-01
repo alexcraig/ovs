@@ -230,6 +230,12 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	return 0;
 }
 
+static int pop_shim(struct sk_buff *skb, struct sw_flow_key *key,
+		     const struct ovs_action_pop_shim *pop_shim)
+{
+	return 0;
+}
+
 static int pop_mpls(struct sk_buff *skb, struct sw_flow_key *key,
 		    const __be16 ethertype)
 {
@@ -1183,6 +1189,11 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		case OVS_ACTION_ATTR_PUSH_SHIM:
 			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
 			err = push_shim(skb, key, nla_data(a));
+			break;
+
+		case OVS_ACTION_ATTR_POP_SHIM:
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_POP_SHIM");
+			err = pop_shim(skb, key, nla_data(a));
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_VLAN:

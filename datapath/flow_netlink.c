@@ -2230,6 +2230,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
 			[OVS_ACTION_ATTR_PUSH_VLAN] = sizeof(struct ovs_action_push_vlan),
 			[OVS_ACTION_ATTR_POP_VLAN] = 0,
 			[OVS_ACTION_ATTR_PUSH_SHIM] = sizeof(struct ovs_action_push_shim),
+			[OVS_ACTION_ATTR_POP_SHIM] = sizeof(struct ovs_action_pop_shim),
 			[OVS_ACTION_ATTR_SET] = (u32)-1,
 			[OVS_ACTION_ATTR_SET_MASKED] = (u32)-1,
 			[OVS_ACTION_ATTR_SAMPLE] = (u32)-1,
@@ -2337,6 +2338,10 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
 			 * recirculation.
 			 */
 			eth_type = htons(0);
+			break;
+
+		case OVS_ACTION_ATTR_POP_SHIM:
+			/* TODO bloomflow: Determine if additional verification needed here */
 			break;
 
 		case OVS_ACTION_ATTR_SET:

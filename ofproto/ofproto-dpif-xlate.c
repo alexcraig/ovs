@@ -5333,15 +5333,19 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
 
 	case OFPACT_PUSH_SHIM:
             VLOG_WARN("BF_DEBUG: Composing PUSH_SHIM action");
-	    struct ofpact_push_shim *shim = ofpact_get_PUSH_SHIM(a);
-            struct ovs_action_push_shim act_shim;
-            act_shim.shim_len = shim->shim_len;
-            memcpy(act_shim.shim, shim->shim, shim->shim_len);
-            nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_shim, sizeof act_shim);
+	    struct ofpact_push_shim *push_shim = ofpact_get_PUSH_SHIM(a);
+            struct ovs_action_push_shim act_push_shim;
+            act_push_shim.shim_len = push_shim->shim_len;
+            memcpy(act_push_shim.shim, push_shim->shim, push_shim->shim_len);
+            nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_push_shim, sizeof act_push_shim);
 	    break;
 
         case OFPACT_POP_SHIM:
-	    /* Nothing to do. */
+	    VLOG_WARN("BF_DEBUG: Composing POP_SHIM action");
+	    struct ofpact_pop_shim *pop_shim = ofpact_get_POP_SHIM(a);
+            struct ovs_action_pop_shim act_pop_shim;
+            act_pop_shim.num_stages = pop_shim->num_stages;
+            nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_POP_SHIM, &act_pop_shim, sizeof act_pop_shim);
             break;
 
         case OFPACT_NOTE:
