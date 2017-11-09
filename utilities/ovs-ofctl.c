@@ -2148,6 +2148,7 @@ ofctl_mod_port(struct ovs_cmdl_context *ctx)
         { "flood",       OFPUTIL_PC_NO_FLOOD,     false },
         { "forward",     OFPUTIL_PC_NO_FWD,       false },
         { "packet-in",   OFPUTIL_PC_NO_PACKET_IN, false },
+        { "bloom-fwd",   OFPUTIL_PC_NO_BLOOM_FWD, false }
     };
 
     const struct ofp_config_flag *flag;

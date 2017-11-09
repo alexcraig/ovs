@@ -355,6 +355,7 @@ ofputil_port_config_to_name(uint32_t bit)
     case OFPUTIL_PC_NO_FLOOD:     return "NO_FLOOD";
     case OFPUTIL_PC_NO_FWD:       return "NO_FWD";
     case OFPUTIL_PC_NO_PACKET_IN: return "NO_PACKET_IN";
+    case OFPUTIL_PC_NO_BLOOM_FWD: return "NO_BLOOM_FWD";
     }
 
     return NULL;

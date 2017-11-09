@@ -80,7 +80,7 @@
 
 /* OpenFlow 1.1 port config flags are just the common flags. */
 #define OFPPC11_ALL \
-    (OFPPC_PORT_DOWN | OFPPC_NO_RECV | OFPPC_NO_FWD | OFPPC_NO_PACKET_IN)
+    (OFPPC_PORT_DOWN | OFPPC_NO_RECV | OFPPC_NO_FWD | OFPPC_NO_PACKET_IN | OFPPC_NO_BLOOM_FWD )
 
 /* OpenFlow 1.1 specific current state of the physical port.  These are not
  * configurable from the controller.

@@ -190,7 +190,8 @@ enum ofp_port_config {
 
     OFPPC_NO_RECV      = 1 << 2,  /* Drop all packets received by port. */
     OFPPC_NO_FWD       = 1 << 5,  /* Drop packets forwarded to port. */
-    OFPPC_NO_PACKET_IN = 1 << 6   /* Do not send packet-in msgs for port. */
+    OFPPC_NO_PACKET_IN = 1 << 6,   /* Do not send packet-in msgs for port. */
+    OFPPC_NO_BLOOM_FWD = 1 << 7   /* Do not test the port for bloom filter based forwarding */
 };
 
 /* Common current state of the physical port.  These are not configurable from

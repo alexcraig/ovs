@@ -579,6 +579,8 @@ enum ofputil_port_config {
     OFPUTIL_PC_NO_RECV_STP  = 1 << 3, /* Drop received 802.1D STP packets. */
     OFPUTIL_PC_NO_FLOOD     = 1 << 4, /* Do not include port when flooding. */
     /* There are no OpenFlow 1.1-only bits. */
+    /* Bloomflow Extensions only. */
+    OFPUTIL_PC_NO_BLOOM_FWD = 1 << 7,
 };
 
 enum ofputil_port_state {
