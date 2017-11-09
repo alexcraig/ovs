@@ -200,7 +200,7 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
         }
 
 	pr_info("BF_DEBUG: push_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
-	// TODO: Code currently assumes IP options field in matched skb is empty,
+	// TODO bloomflow: Code currently assumes IP options field in matched skb is empty,
 	// behaviour undefined if this is not the case
 
 	if (skb_cow_head(skb, push_hdr_len) < 0)
@@ -216,12 +216,12 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_hdr_len);
 
 	ip_header = ip_hdr(skb);
-	ip_header->tot_len = ip_header->tot_len + push_hdr_len;
+	ip_header->tot_len = htons(ntohs(ip_header->tot_len) + push_hdr_len);
 	ip_header->ihl = ip_header->ihl + ((push_hdr_len / 4) & 0x0F);
 
 	skb_set_transport_header(skb, skb->mac_len + (ip_hdr(skb)->ihl*4));
 
-	// TODO: Recalculate checksums
+	// TODO bloomflow: Verify recalculation of checksums is working
 	ip_header->check = 0;
 	ip_send_check(ip_header);
 
@@ -233,6 +233,41 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 static int pop_shim(struct sk_buff *skb, struct sw_flow_key *key,
 		     const struct ovs_action_pop_shim *pop_shim)
 {
+	struct iphdr* ip_header;
+	// TODO bloomflow: num_stages parameter is currently ignored, all stage filters are always removed
+	//uint16_t stages_to_remove = pop_shim->shim_len;
+	uint16_t bytes_to_remove;
+
+	ip_header = ip_hdr(skb);
+	pr_info("BF_DEBUG: pop_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
+
+	// 20 = Length of IPv4 header with no options field
+	bytes_to_remove = (((uint16_t)(ip_header->ihl)) * 4) - 20;
+	
+	if (bytes_to_remove == 0) {
+		pr_info("BF_DEBUG: pop_shim found no shim header to remove, returning");
+		return 0;
+	}
+
+	// Move the entire MAC and IP header to the right by the number of bytes to be removed
+	memmove(skb_mac_header(skb) + bytes_to_remove, skb_mac_header(skb), skb->mac_len + (ip_header->ihl*4) - bytes_to_remove);
+	skb_pull(skb, bytes_to_remove);
+	skb_reset_mac_header(skb);
+	skb_set_network_header(skb, skb->mac_len);
+
+	ip_header = ip_hdr(skb);
+	ip_header->ihl = ip_header->ihl - ((bytes_to_remove / 4) & 0x0F);
+	ip_header->tot_len = htons(ntohs(ip_header->tot_len) - bytes_to_remove);
+
+	skb_set_transport_header(skb, skb->mac_len + (ip_hdr(skb)->ihl*4));
+
+	// TODO bloomflow: Verify recalculation of checksums is working
+	ip_header->check = 0;
+	ip_send_check(ip_header);
+
+	pr_info("BF_DEBUG: pop_shim completed successfully\n");
+	//invalidate_flow_key(key);
+
 	return 0;
 }
 
