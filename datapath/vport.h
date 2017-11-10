@@ -85,6 +85,7 @@ struct vport {
 	struct datapath	*dp;
 	struct vport_portids __rcu *upcall_portids;
 	u16 port_no;
+	u16 bloom_id;
 
 	struct hlist_node hash_node;
 	struct hlist_node dp_hash_node;

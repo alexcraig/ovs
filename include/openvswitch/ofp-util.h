@@ -684,6 +684,7 @@ struct ofputil_port_mod {
     enum ofputil_port_config config;
     enum ofputil_port_config mask;
     enum netdev_features advertise;
+    uint16_t bloom_id;
 };
 
 enum ofperr ofputil_decode_port_mod(const struct ofp_header *,

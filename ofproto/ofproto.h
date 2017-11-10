@@ -32,6 +32,7 @@
 #include "sset.h"
 #include "stp.h"
 #include "lacp.h"
+#include "dpif-netlink.h"
 
 #ifdef  __cplusplus
 extern "C" {

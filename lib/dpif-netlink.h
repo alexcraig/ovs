@@ -42,6 +42,7 @@ struct dpif_netlink_vport {
      */
     const char *name;                      /* OVS_VPORT_ATTR_NAME. */
     uint32_t n_upcall_pids;
+    uint16_t bloom_id;			   /* OVS_VPORT_ATTR_BLOOM_ID */
     const uint32_t *upcall_pids;           /* OVS_VPORT_ATTR_UPCALL_PID. */
     const struct ovs_vport_stats *stats;   /* OVS_VPORT_ATTR_STATS. */
     const struct nlattr *options;          /* OVS_VPORT_ATTR_OPTIONS. */

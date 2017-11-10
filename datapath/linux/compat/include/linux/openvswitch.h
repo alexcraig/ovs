@@ -281,6 +281,7 @@ enum ovs_vport_attr {
 	OVS_VPORT_ATTR_OPTIONS, /* nested attributes, varies by vport type */
 	OVS_VPORT_ATTR_UPCALL_PID, /* array of u32 Netlink socket PIDs for */
 				/* receiving upcalls */
+        OVS_VPORT_ATTR_BLOOM_ID,
 	OVS_VPORT_ATTR_STATS,	/* struct ovs_vport_stats */
 	OVS_VPORT_ATTR_PAD,
 	__OVS_VPORT_ATTR_MAX

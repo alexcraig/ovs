@@ -188,6 +188,7 @@ struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *ops,
 
 	vport->dp = parms->dp;
 	vport->port_no = parms->port_no;
+	vport->bloom_id = 0;
 	vport->ops = ops;
 	INIT_HLIST_NODE(&vport->dp_hash_node);
 

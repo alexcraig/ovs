@@ -2471,6 +2471,7 @@ dpif_netlink_vport_from_ofpbuf(struct dpif_netlink_vport *vport,
         [OVS_VPORT_ATTR_TYPE] = { .type = NL_A_U32 },
         [OVS_VPORT_ATTR_NAME] = { .type = NL_A_STRING, .max_len = IFNAMSIZ },
         [OVS_VPORT_ATTR_UPCALL_PID] = { .type = NL_A_UNSPEC },
+        [OVS_VPORT_ATTR_BLOOM_ID] = { .type = NL_A_U16 , .optional = true },
         [OVS_VPORT_ATTR_STATS] = { NL_POLICY_FOR(struct ovs_vport_stats),
                                    .optional = true },
         [OVS_VPORT_ATTR_OPTIONS] = { .type = NL_A_NESTED, .optional = true },
@@ -2501,6 +2502,9 @@ dpif_netlink_vport_from_ofpbuf(struct dpif_netlink_vport *vport,
                                / (sizeof *vport->upcall_pids);
         vport->upcall_pids = nl_attr_get(a[OVS_VPORT_ATTR_UPCALL_PID]);
 
+    }
+    if (a[OVS_VPORT_ATTR_BLOOM_ID]) {
+        vport->bloom_id = nl_attr_get_u16(a[OVS_VPORT_ATTR_BLOOM_ID]);
     }
     if (a[OVS_VPORT_ATTR_STATS]) {
         vport->stats = nl_attr_get(a[OVS_VPORT_ATTR_STATS]);
@@ -2542,6 +2546,11 @@ dpif_netlink_vport_to_ofpbuf(const struct dpif_netlink_vport *vport,
         nl_msg_put_unspec(buf, OVS_VPORT_ATTR_UPCALL_PID,
                           vport->upcall_pids,
                           vport->n_upcall_pids * sizeof *vport->upcall_pids);
+    }
+
+    if (vport->bloom_id != 0) {
+	VLOG_WARN("BF_DEBUG: Writing bloom id %d to netlink message", vport->bloom_id);	
+	nl_msg_put_u16(buf, OVS_VPORT_ATTR_BLOOM_ID, vport->bloom_id);
     }
 
     if (vport->stats) {

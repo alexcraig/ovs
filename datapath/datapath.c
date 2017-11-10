@@ -1927,6 +1927,7 @@ static struct vport *lookup_vport(struct net *net,
 	struct vport *vport;
 
 	if (a[OVS_VPORT_ATTR_NAME]) {
+		//pr_info("BF_DEBUG: Performing vport lookup by name");
 		vport = ovs_vport_locate(net, nla_data(a[OVS_VPORT_ATTR_NAME]));
 		if (!vport)
 			return ERR_PTR(-ENODEV);
@@ -1935,6 +1936,7 @@ static struct vport *lookup_vport(struct net *net,
 			return ERR_PTR(-ENODEV);
 		return vport;
 	} else if (a[OVS_VPORT_ATTR_PORT_NO]) {
+		//pr_info("BF_DEBUG: Performing vport lookup by port number");
 		u32 port_no = nla_get_u32(a[OVS_VPORT_ATTR_PORT_NO]);
 
 		if (port_no >= DP_MAX_PORTS)
@@ -2063,7 +2065,10 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 	struct nlattr **a = info->attrs;
 	struct sk_buff *reply;
 	struct vport *vport;
+        uint16_t bloom_id;
 	int err;
+
+	pr_info("BF_DEBUG: ovs_vport_cmd_set called");
 
 	reply = ovs_vport_cmd_alloc_info();
 	if (!reply)
@@ -2072,11 +2077,14 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 	ovs_lock();
 	vport = lookup_vport(sock_net(skb->sk), info->userhdr, a);
 	err = PTR_ERR(vport);
-	if (IS_ERR(vport))
+	if (IS_ERR(vport)) {
+		pr_info("BF_DEBUG: ERROR: lookup_vport failed!");
 		goto exit_unlock_free;
+	}
 
 	if (a[OVS_VPORT_ATTR_TYPE] &&
 	    nla_get_u32(a[OVS_VPORT_ATTR_TYPE]) != vport->ops->type) {
+		pr_info("BF_DEBUG: Error on reading a[OVS_VPORT_ATTR_TYPE]");
 		err = -EINVAL;
 		goto exit_unlock_free;
 	}
@@ -2094,6 +2102,16 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 		if (err)
 			goto exit_unlock_free;
 	}
+
+	pr_info("BF_DEBUG: Testing for a[OVS_VPORT_ATTR_BLOOM_ID]");
+	if (a[OVS_VPORT_ATTR_BLOOM_ID]) {
+		bloom_id = nla_get_u16(a[OVS_VPORT_ATTR_BLOOM_ID]);
+		vport->bloom_id = bloom_id;
+		pr_info("BF_DEBUG: Set vport bloom ID to %d", bloom_id);
+                goto exit_unlock_free;
+        }
+	pr_info("BF_DEBUG: No OVS_VPORT_ATTR_BLOOM_ID attribute found");
+
 
 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,
 				      info->snd_seq, 0, OVS_VPORT_CMD_NEW);
