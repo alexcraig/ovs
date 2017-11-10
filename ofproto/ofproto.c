@@ -3635,13 +3635,13 @@ port_mod_finish(struct ofconn *ofconn, struct ofputil_port_mod *pm,
         netdev_set_advertisements(port->netdev, pm->advertise);
     }
 
-    VLOG_WARN("BF_DEBUG: Generating OVS_VPORT_CMD_SET message with bloom id 1234");
+    VLOG_WARN("BF_DEBUG: Generating OVS_VPORT_CMD_SET message with bloom id %d", pm->bloom_id);
     struct dpif_netlink_vport vport_request;
     dpif_netlink_vport_init(&vport_request);
     vport_request.cmd = OVS_VPORT_CMD_SET;
     vport_request.name = netdev_get_name(port->netdev);
     VLOG_WARN("BF_DEBUG: Set vport_request.name = %s", vport_request.name);
-    vport_request.bloom_id = (uint16_t)1234; // pm.bloom_id
+    vport_request.bloom_id = pm->bloom_id;
 
     dpif_netlink_vport_transact(&vport_request, NULL, NULL);
 }

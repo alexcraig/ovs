@@ -2158,6 +2158,7 @@ ofctl_mod_port(struct ovs_cmdl_context *ctx)
     struct vconn *vconn;
     const char *command;
     bool not;
+    int new_bloom_id;
 
     fetch_ofputil_phy_port(ctx->argv[1], ctx->argv[2], &pp);
 
@@ -2167,6 +2168,12 @@ ofctl_mod_port(struct ovs_cmdl_context *ctx)
     pm.mask = 0;
     pm.advertise = 0;
 
+    if (!strncasecmp(ctx->argv[3], "bloom-id", 8)) {
+	sscanf(ctx->argv[4], "%d", &new_bloom_id);
+	VLOG_WARN("ofctl_port_mod read bloom identifier: %d", new_bloom_id);
+	pm.bloom_id = (uint16_t)new_bloom_id;
+	goto found;
+    }
     if (!strncasecmp(ctx->argv[3], "no-", 3)) {
         command = ctx->argv[3] + 3;
         not = true;
@@ -4413,8 +4420,8 @@ static const struct ovs_cmdl_command all_commands[] = {
       1, 2, ofctl_dump_ports, OVS_RO },
     { "dump-ports-desc", "switch [port]",
       1, 2, ofctl_dump_ports_desc, OVS_RO },
-    { "mod-port", "switch iface act",
-      3, 3, ofctl_mod_port, OVS_RW },
+    { "mod-port", "switch iface act bloom-id",
+      3, 4, ofctl_mod_port, OVS_RW },
     { "mod-table", "switch mod",
       3, 3, ofctl_mod_table, OVS_RW },
     { "get-frags", "switch",

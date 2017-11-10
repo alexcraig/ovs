@@ -846,6 +846,11 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
 		u16 mru = OVS_CB(skb)->mru;
 		u32 cutlen = OVS_CB(skb)->cutlen;
 
+		if (vport->bloom_id != 0) {
+			pr_info("BF_DEBUG: Outputting to port with bloom id = %d", vport->bloom_id);
+		}
+
+
 		if (unlikely(cutlen > 0)) {
 			if (skb->len - cutlen > ETH_HLEN)
 				pskb_trim(skb, skb->len - cutlen);

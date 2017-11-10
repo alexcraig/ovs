@@ -143,7 +143,8 @@ struct ofp11_port_mod {
 
     ovs_be32 advertise;     /* Bitmap of OFPPF_* and OFPPF11_*.  Zero all bits
                                to prevent any action taking place. */
-    uint8_t pad3[4];        /* Pad to 64 bits. */
+    ovs_be16 bloom_id;
+    uint8_t pad3[2];        /* Pad to 64 bits. */
 };
 OFP_ASSERT(sizeof(struct ofp11_port_mod) == 32);
 

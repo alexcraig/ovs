@@ -4947,6 +4947,7 @@ ofputil_decode_port_mod(const struct ofp_header *oh,
         pm->config = ntohl(opm->config) & OFPPC11_ALL;
         pm->mask = ntohl(opm->mask) & OFPPC11_ALL;
         pm->advertise = netdev_port_features_from_ofp11(opm->advertise);
+        pm->bloom_id = ntohs(opm->bloom_id);
     } else if (raw == OFPRAW_OFPT14_PORT_MOD) {
         const struct ofp14_port_mod *opm = ofpbuf_pull(&b, sizeof *opm);
         enum ofperr error;
@@ -5029,6 +5030,7 @@ ofputil_encode_port_mod(const struct ofputil_port_mod *pm,
         opm->hw_addr = pm->hw_addr;
         opm->config = htonl(pm->config & OFPPC11_ALL);
         opm->mask = htonl(pm->mask & OFPPC11_ALL);
+        opm->bloom_id = htons(pm->bloom_id);
         opm->advertise = netdev_port_features_to_ofp11(pm->advertise);
         break;
     }
