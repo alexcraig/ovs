@@ -845,7 +845,8 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
 	if (likely(vport)) {
 		u16 mru = OVS_CB(skb)->mru;
 		u32 cutlen = OVS_CB(skb)->cutlen;
-
+		
+		pr_info("BF_DEBUG: do_output called, out_port = %d", out_port);
 		if (vport->bloom_id != 0) {
 			pr_info("BF_DEBUG: Outputting to port with bloom id = %d", vport->bloom_id);
 		}
@@ -1194,8 +1195,11 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		switch (nla_type(a)) {
 		case OVS_ACTION_ATTR_OUTPUT:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT");
 			prev_port = nla_get_u32(a);
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
+			if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
+				pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
+			}
 			break;
 
 		case OVS_ACTION_ATTR_TRUNC: {
@@ -1292,7 +1296,6 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	}
 
 	if (prev_port != -1) {
-		pr_info("BF_DEBUG: do_output called**\n");
 		do_output(dp, skb, prev_port, key);
 	} else {
 		consume_skb(skb);

@@ -2215,6 +2215,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
 {
 	const struct nlattr *a;
 	int rem, err;
+	uint32_t port;
 
 	if (depth >= SAMPLE_ACTION_DEPTH)
 		return -EOVERFLOW;
@@ -2259,8 +2260,12 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
 			break;
 
 		case OVS_ACTION_ATTR_OUTPUT:
-			if (nla_get_u32(a) >= DP_MAX_PORTS)
+			// 0xfff6 == OFPP_BLOOM_PORTS
+			port = nla_get_u32(a);
+			if (port != 0xfff6 && port >= DP_MAX_PORTS) {
+				pr_info("BF_DEBUG: __ovs_nla_copy_actions failed port check on OVS_ACTION_ATTR_OUTPUT, port = %d", port);
 				return -EINVAL;
+			}
 			break;
 
 		case OVS_ACTION_ATTR_TRUNC: {

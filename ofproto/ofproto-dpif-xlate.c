@@ -4162,6 +4162,7 @@ xlate_output_action(struct xlate_ctx *ctx,
 
     ctx->nf_output_iface = NF_OUT_DROP;
 
+    VLOG_WARN("BF_DEBUG: xlate_output_action called");
     switch (port) {
     case OFPP_IN_PORT:
         compose_output_action(ctx, ctx->xin->flow.in_port.ofp_port, NULL);
@@ -4170,6 +4171,10 @@ xlate_output_action(struct xlate_ctx *ctx,
         xlate_table_action(ctx, ctx->xin->flow.in_port.ofp_port,
                            0, may_packet_in, true);
         break;
+    case OFPP_BLOOM_PORTS:
+	VLOG_WARN("BF_DEBUG: xlate_output_action got OFPP_BLOOM_PORTS for port");
+	nl_msg_put_u32(ctx->odp_actions, OVS_ACTION_ATTR_OUTPUT, OFPP_BLOOM_PORTS);
+	break;
     case OFPP_NORMAL:
         xlate_normal(ctx);
         break;

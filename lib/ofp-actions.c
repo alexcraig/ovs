@@ -668,7 +668,7 @@ parse_OUTPUT(const char *arg, struct ofpbuf *ofpacts,
 static void
 format_OUTPUT(const struct ofpact_output *a, struct ds *s)
 {
-    if (ofp_to_u16(a->port) < ofp_to_u16(OFPP_MAX)) {
+    if (ofp_to_u16(a->port) < ofp_to_u16(OFPP_MAX) || ofp_to_u16(a->port) == OFPP_BLOOM_PORTS) {
         ds_put_format(s, "%soutput:%s%"PRIu32,
                       colors.special, colors.end, a->port);
     } else {
@@ -2306,6 +2306,7 @@ parse_POP_SHIM(char *arg, struct ofpbuf *ofpacts,
     error = str_to_u16(arg, "pop_shim", &num_stages);
     if(!error) {
 	pop_shim->num_stages = num_stages;
+	VLOG_WARN("BF_DEBUG: parse_POP_SHIM read %d stages", pop_shim->num_stages);
     } else {
 	free(error);
 	error = NULL;
@@ -7189,6 +7190,7 @@ ofpact_check_output_port(ofp_port_t port, ofp_port_t max_ports)
     case OFPP_ALL:
     case OFPP_CONTROLLER:
     case OFPP_LOCAL:
+    case OFPP_BLOOM_PORTS:
         return 0;
 
     case OFPP_NONE:
