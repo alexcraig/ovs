@@ -1163,6 +1163,44 @@ static int execute_recirc(struct datapath *dp, struct sk_buff *skb,
 	return 0;
 }
 
+static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
+		      struct sw_flow_key *key)
+{
+	struct vport *vport;
+	struct vport *input_vport;
+	struct hlist_head *head;
+	int i;
+	int in_switch_no = 0;
+	int in_eth_no = 0;
+	int eth_no = 0;
+	int switch_no = 0;
+	int read_vals = 0;
+
+	input_vport = OVS_CB(skb)->input_vport;
+	read_vals = sscanf(ovs_vport_name(input_vport), "s%d-eth%d", &in_switch_no, &in_eth_no);
+	if (read_vals != 2) {
+		return;
+	}
+	pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
+	for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
+		head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
+		hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
+			if (vport->bloom_id == 0) {
+				continue;
+			}
+			
+			read_vals = sscanf(ovs_vport_name(vport), "s%d-eth%d", &switch_no, &eth_no);
+			if (read_vals != 2) {
+				continue;
+			}
+
+			if (in_switch_no == switch_no) {
+				pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+			}
+		}
+	}
+}
+
 /* Execute a list of actions against 'skb'. */
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			      struct sw_flow_key *key,
@@ -1199,6 +1237,8 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
 			if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
 				pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
+				do_bloom_filter_forwarding(dp, skb, key);
+				prev_port = -1;
 			}
 			break;
 
