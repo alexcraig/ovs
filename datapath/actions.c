@@ -44,6 +44,7 @@
 #include "gso.h"
 #include "vport.h"
 #include "bloomfilter.h"
+#include "eliasgamma.h"
 
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			      struct sw_flow_key *key,
@@ -213,8 +214,9 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	memmove(skb_mac_header(skb) - push_hdr_len, skb_mac_header(skb), skb->mac_len + (ip_hdr(skb)->ihl*4));
 	skb_reset_mac_header(skb);
 	skb_set_network_header(skb, skb->mac_len);
-	
-	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_hdr_len);
+
+	memset(skb_network_header(skb) + 20, 0, push_hdr_len);	
+	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_shim->shim_len);
 
 	ip_header = ip_hdr(skb);
 	ip_header->tot_len = htons(ntohs(ip_header->tot_len) + push_hdr_len);
@@ -847,7 +849,6 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
 		u16 mru = OVS_CB(skb)->mru;
 		u32 cutlen = OVS_CB(skb)->cutlen;
 		
-		pr_info("BF_DEBUG: do_output called, out_port = %d", out_port);
 		if (vport->bloom_id != 0) {
 			pr_info("BF_DEBUG: Outputting to port with bloom id = %d", vport->bloom_id);
 		}
@@ -1170,35 +1171,175 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	struct vport *vport;
 	struct vport *input_vport;
 	struct hlist_head *head;
-	int i;
 	int in_switch_no = 0;
 	int in_eth_no = 0;
 	int eth_no = 0;
 	int switch_no = 0;
 	int read_vals = 0;
 
-	input_vport = OVS_CB(skb)->input_vport;
-	read_vals = sscanf(ovs_vport_name(input_vport), "s%d-eth%d", &in_switch_no, &in_eth_no);
-	if (read_vals != 2) {
+	uint8_t ihl_words, ihl_words_new, ip_opt_remaining;
+	uint16_t ip_opt_bytes, ip_opt_bytes_new, ip_opt_words, bytes_to_shift, bits_to_shift, shift_byte_index, shift_bit_index, removed_bits, i;
+	uint16_t b_filter_len, b_eg_len_bits, k_num_hash_functions, k_eg_len_bits = 0;
+	struct bloom_filter* filter;
+	unsigned char* stage_base;
+	struct iphdr* ip_header;
+	struct sk_buff *out_skb;
+	int prev_port = -1;
+	int new_skb_len = 0;
+
+	// Process the in-packet shim header to determine the number of hash functions and number of bits in the shim bloom filter
+	ip_header = ip_hdr(skb);
+	ihl_words = ip_header->ihl & 0x0f;
+	if (ihl_words == 5) {
+		pr_info("BF_DEBUG: No IP options field present in packet (IHL == 5)");
+		// No IP options are present, and therefore no shim header is present
 		return;
 	}
-	pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
-	for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
-		head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
-		hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
-			if (vport->bloom_id == 0) {
-				continue;
-			}
-			
-			read_vals = sscanf(ovs_vport_name(vport), "s%d-eth%d", &switch_no, &eth_no);
-			if (read_vals != 2) {
-				continue;
-			}
 
-			if (in_switch_no == switch_no) {
-				pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+	ip_opt_bytes = (ihl_words - 5) << 2;
+	ip_opt_bytes_new = ip_opt_bytes;
+	removed_bits = 0;
+
+	stage_base = (((unsigned char*)ip_header) + 20); // 20 = IPv4 header length
+	b_filter_len = decode_uint16_32bit_elias_gamma(stage_base, 4, &b_eg_len_bits);
+	if (b_filter_len == 0) {
+		pr_info("BF_DEBUG: No valid elias-gamma encoded value found in IP options");
+		return; // No valid elias-gamma encoded number was found
+	}
+
+	// Shift the IP options array left by a number of bits equal to the length of the decoded elias-gamma field
+	removed_bits += b_eg_len_bits;
+		bytes_to_shift = b_eg_len_bits >> 3; // b_eg_len_bits / 8
+	bits_to_shift = b_eg_len_bits % 8;
+	for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift; shift_byte_index++) {
+		stage_base[shift_byte_index] = stage_base[shift_byte_index + bytes_to_shift];
+	}
+	for(shift_byte_index = ip_opt_bytes_new - bytes_to_shift; shift_byte_index < ip_opt_bytes_new; shift_byte_index++) {
+		stage_base[shift_byte_index] = 0;
+	}
+	for(shift_bit_index = 0; shift_bit_index < bits_to_shift; shift_bit_index++) {
+		for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift - 1; shift_byte_index++) {
+			stage_base[shift_byte_index] = (stage_base[shift_byte_index] << 1) | (stage_base[shift_byte_index + 1] >= 128 ? 0x01 : 0x00);
+		}
+		stage_base[ip_opt_bytes_new - bytes_to_shift - 1] = (stage_base[ip_opt_bytes_new - bytes_to_shift - 1] << 1);
+	}
+	ip_opt_bytes_new = ip_opt_bytes - (removed_bits >> 3); // removed_bits / 8
+
+	k_num_hash_functions = decode_uint16_32bit_elias_gamma(stage_base, 4, &k_eg_len_bits);
+	// Shift the array left by a number of bits equal to the previously read bloom filter length, plus
+	// the length of the decoded elias-gamma field
+	removed_bits += k_eg_len_bits;
+	bytes_to_shift = k_eg_len_bits >> 3; // k_eg_len_bits / 8
+	bits_to_shift = k_eg_len_bits % 8;
+	for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift; shift_byte_index++) {
+		stage_base[shift_byte_index] = stage_base[shift_byte_index + bytes_to_shift];
+	}
+	for(shift_byte_index = ip_opt_bytes_new - bytes_to_shift; shift_byte_index < ip_opt_bytes_new; shift_byte_index++) {
+		stage_base[shift_byte_index] = 0;
+	}
+	for(shift_bit_index = 0; shift_bit_index < bits_to_shift; shift_bit_index++) {
+		for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift - 1; shift_byte_index++) {
+			stage_base[shift_byte_index] = (stage_base[shift_byte_index] << 1) | (stage_base[shift_byte_index + 1] >= 128 ? 0x01 : 0x00);
+		}
+		stage_base[ip_opt_bytes_new - bytes_to_shift - 1] = (stage_base[ip_opt_bytes_new - bytes_to_shift - 1] << 1);
+	}
+	ip_opt_bytes_new = ip_opt_bytes - (removed_bits >> 3); // removed_bits / 8
+
+	// Copy the bloom filter to a new buffer for processing before stripping it from the packet header
+	filter = init_bloom_filter(b_filter_len, k_num_hash_functions);
+	if (filter) {
+		memcpy((void*)filter->filter_byte_array, (void*)(((unsigned char*)ip_header) + 20), ip_opt_bytes_new);
+		pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
+	} else {
+		pr_info("BF_DEBUG: Failed to allocate memory to store bloom filter copy");
+	}
+
+	// Shift the array left by a number of bits equal to the previously read length of the bloom filter
+	removed_bits += b_filter_len;
+	bytes_to_shift = b_filter_len >> 3; // b_filter_len / 8
+	bits_to_shift = b_filter_len % 8;
+	for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift; shift_byte_index++) {
+		stage_base[shift_byte_index] = stage_base[shift_byte_index + bytes_to_shift];
+	}
+	for(shift_byte_index = ip_opt_bytes_new - bytes_to_shift; shift_byte_index < ip_opt_bytes_new; shift_byte_index++) {
+		stage_base[shift_byte_index] = 0;
+	}
+	for(shift_bit_index = 0; shift_bit_index < bits_to_shift; shift_bit_index++) {
+		for(shift_byte_index = 0; shift_byte_index < ip_opt_bytes_new - bytes_to_shift - 1; shift_byte_index++) {
+			stage_base[shift_byte_index] = (stage_base[shift_byte_index] << 1) | (stage_base[shift_byte_index + 1] >= 128 ? 0x01 : 0x00);
+		}
+		stage_base[ip_opt_bytes_new - bytes_to_shift - 1] = (stage_base[ip_opt_bytes_new - bytes_to_shift - 1] << 1);
+	}
+	ip_opt_bytes_new = ip_opt_bytes - (removed_bits >> 3); // removed_bits / 8
+
+	// Set the options field byte count to 0 if it is occupied entirely by zeros
+	ip_opt_remaining = 0;
+	for(i = 0; i < ip_opt_bytes_new; i++) {
+		if(stage_base[i] > 0) {
+			ip_opt_remaining = 1;
+			break;
+		}
+	}
+	if(ip_opt_remaining == 0) {
+		ip_opt_bytes_new = 0;
+	}
+
+	// Set IP ihl field according to the new length of the IP options field, and shift the l3 payload accordingly
+	ip_opt_words = ip_opt_bytes_new >> 2; // ip_opt_bytes_new / 4
+	if(ip_opt_bytes_new % 4 != 0) {
+		ip_opt_words = ip_opt_words + 1;
+	}
+	ihl_words_new = 5 + ip_opt_words;
+	pr_info("BF_DEBUG: ihl_words = %d, ihl_words_new = %d, ip_opt_words = %d", ihl_words, ihl_words_new, ip_opt_words);
+	pr_info("BF_DEBUG: Shifting %d bytes of payload to the left", ntohs(ip_header->tot_len) - (ihl_words << 2));
+	ip_header->ihl = (ihl_words_new & 0x0F);
+	memmove((void*)(((unsigned char*)ip_header) + (ihl_words_new << 2)), (void*)(((unsigned char*)ip_header) + (ihl_words << 2)), ntohs(ip_header->tot_len) - (ihl_words << 2));
+	ip_header->tot_len = htons(ntohs(ip_header->tot_len) - ((ihl_words - ihl_words_new) * 4));
+	skb_set_transport_header(skb, skb->mac_len + (ip_hdr(skb)->ihl*4));
+	new_skb_len = skb->len - ((ihl_words - ihl_words_new) * 4);
+	pr_info("BF_DEBUG: Trimming skb from %d to %d bytes", skb->len, new_skb_len); 
+	skb_trim(skb, new_skb_len);
+
+	// TODO bloomflow: Verify recalculation of checksums is working
+	ip_header->check = 0;
+	ip_send_check(ip_header);
+
+	// Now that bloom filter has been read, iterate through all vports (which are defined on the same mininet switch!)
+	// and test for membership against the extracted bloom filter.
+	if (filter) {
+		input_vport = OVS_CB(skb)->input_vport;
+		read_vals = sscanf(ovs_vport_name(input_vport), "s%d-eth%d", &in_switch_no, &in_eth_no);
+		if (read_vals != 2) {
+			return;
+		}
+		pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
+		for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
+			head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
+			hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
+				if (vport->bloom_id == 0) {
+					continue;
+				}
+				
+				read_vals = sscanf(ovs_vport_name(vport), "s%d-eth%d", &switch_no, &eth_no);
+				if (read_vals != 2) {
+					continue;
+				}
+	
+				if (in_switch_no == switch_no) {
+					pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
+						out_skb = skb_clone(skb, GFP_ATOMIC);
+						if (out_skb) {
+							do_output(dp, out_skb, vport->port_no, key);
+						} else {
+							pr_info("BF_DEBUG: Failed to allocate memory for bloom output operation");
+						}
+					}
+				}
 			}
 		}
+
+		free_bloom_filter(filter);
 	}
 }
 
