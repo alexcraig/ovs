@@ -43,6 +43,7 @@
 #include "conntrack.h"
 #include "gso.h"
 #include "vport.h"
+#include "bloomfilter.h"
 
 static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			      struct sw_flow_key *key,
