@@ -1326,6 +1326,10 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 				}
 	
 				if (in_switch_no == switch_no) {
+					if (in_eth_no == eth_no) {
+						continue;
+					}
+
 					pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
 					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
 						out_skb = skb_clone(skb, GFP_ATOMIC);
