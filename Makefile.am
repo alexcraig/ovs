@@ -87,7 +87,10 @@ EXTRA_DIST = \
 	$(MAN_ROOTS) \
 	Vagrantfile \
 	Vagrantfile-FreeBSD \
-	.mailmap
+	.mailmap \
+	kill_ovs.py \
+	kmod_config.sh \
+	rebuild.sh
 bin_PROGRAMS =
 sbin_PROGRAMS =
 bin_SCRIPTS =
