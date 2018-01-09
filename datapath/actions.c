@@ -201,7 +201,7 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
             push_hdr_len = push_hdr_len + (4 - (push_hdr_len % 4));
         }
 
-	pr_info("BF_DEBUG: push_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
+	// pr_info("BF_DEBUG: push_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
 	// TODO bloomflow: Code currently assumes IP options field in matched skb is empty,
 	// behaviour undefined if this is not the case
 
@@ -228,7 +228,7 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	ip_header->check = 0;
 	ip_send_check(ip_header);
 
-	pr_info("BF_DEBUG: push_shim completed successfully\n");
+	// pr_info("BF_DEBUG: push_shim completed successfully\n");
 	//invalidate_flow_key(key);
 	return 0;
 }
@@ -242,13 +242,13 @@ static int pop_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	uint16_t bytes_to_remove;
 
 	ip_header = ip_hdr(skb);
-	pr_info("BF_DEBUG: pop_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
+	// pr_info("BF_DEBUG: pop_shim called, mac_len = %d, ihl (bytes) = %d\n", skb->mac_len, ip_hdr(skb)->ihl * 4);
 
 	// 20 = Length of IPv4 header with no options field
 	bytes_to_remove = (((uint16_t)(ip_header->ihl)) * 4) - 20;
 	
 	if (bytes_to_remove == 0) {
-		pr_info("BF_DEBUG: pop_shim found no shim header to remove, returning");
+		// pr_info("BF_DEBUG: pop_shim found no shim header to remove, returning");
 		return 0;
 	}
 
@@ -268,7 +268,7 @@ static int pop_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	ip_header->check = 0;
 	ip_send_check(ip_header);
 
-	pr_info("BF_DEBUG: pop_shim completed successfully\n");
+	// pr_info("BF_DEBUG: pop_shim completed successfully\n");
 	//invalidate_flow_key(key);
 
 	return 0;
@@ -849,9 +849,9 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
 		u16 mru = OVS_CB(skb)->mru;
 		u32 cutlen = OVS_CB(skb)->cutlen;
 		
-		if (vport->bloom_id != 0) {
-			pr_info("BF_DEBUG: Outputting to port with bloom id = %d", vport->bloom_id);
-		}
+		//if (vport->bloom_id != 0) {
+		//	pr_info("BF_DEBUG: Outputting to port with bloom id = %d", vport->bloom_id);
+		//}
 
 
 		if (unlikely(cutlen > 0)) {
@@ -1191,7 +1191,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	ip_header = ip_hdr(skb);
 	ihl_words = ip_header->ihl & 0x0f;
 	if (ihl_words == 5) {
-		pr_info("BF_DEBUG: No IP options field present in packet (IHL == 5)");
+		// pr_info("BF_DEBUG: No IP options field present in packet (IHL == 5)");
 		// No IP options are present, and therefore no shim header is present
 		return;
 	}
@@ -1203,7 +1203,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	stage_base = (((unsigned char*)ip_header) + 20); // 20 = IPv4 header length
 	b_filter_len = decode_uint16_32bit_elias_gamma(stage_base, 4, &b_eg_len_bits);
 	if (b_filter_len == 0) {
-		pr_info("BF_DEBUG: No valid elias-gamma encoded value found in IP options");
+		// pr_info("BF_DEBUG: No valid elias-gamma encoded value found in IP options");
 		return; // No valid elias-gamma encoded number was found
 	}
 
@@ -1249,9 +1249,10 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	filter = init_bloom_filter(b_filter_len, k_num_hash_functions);
 	if (filter) {
 		memcpy((void*)filter->filter_byte_array, (void*)(((unsigned char*)ip_header) + 20), ip_opt_bytes_new);
-		pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
+		//pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
 	} else {
-		pr_info("BF_DEBUG: Failed to allocate memory to store bloom filter copy");
+		pr_warn("BF_DEBUG: Failed to allocate memory to store bloom filter copy");
+		return;
 	}
 
 	// Shift the array left by a number of bits equal to the previously read length of the bloom filter
@@ -1290,14 +1291,14 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		ip_opt_words = ip_opt_words + 1;
 	}
 	ihl_words_new = 5 + ip_opt_words;
-	pr_info("BF_DEBUG: ihl_words = %d, ihl_words_new = %d, ip_opt_words = %d", ihl_words, ihl_words_new, ip_opt_words);
-	pr_info("BF_DEBUG: Shifting %d bytes of payload to the left", ntohs(ip_header->tot_len) - (ihl_words << 2));
+	// pr_info("BF_DEBUG: ihl_words = %d, ihl_words_new = %d, ip_opt_words = %d", ihl_words, ihl_words_new, ip_opt_words);
+	// pr_info("BF_DEBUG: Shifting %d bytes of payload to the left", ntohs(ip_header->tot_len) - (ihl_words << 2));
 	ip_header->ihl = (ihl_words_new & 0x0F);
 	memmove((void*)(((unsigned char*)ip_header) + (ihl_words_new << 2)), (void*)(((unsigned char*)ip_header) + (ihl_words << 2)), ntohs(ip_header->tot_len) - (ihl_words << 2));
 	ip_header->tot_len = htons(ntohs(ip_header->tot_len) - ((ihl_words - ihl_words_new) * 4));
 	skb_set_transport_header(skb, skb->mac_len + (ip_hdr(skb)->ihl*4));
 	new_skb_len = skb->len - ((ihl_words - ihl_words_new) * 4);
-	pr_info("BF_DEBUG: Trimming skb from %d to %d bytes", skb->len, new_skb_len); 
+	// pr_info("BF_DEBUG: Trimming skb from %d to %d bytes", skb->len, new_skb_len); 
 	skb_trim(skb, new_skb_len);
 
 	// TODO bloomflow: Verify recalculation of checksums is working
@@ -1312,7 +1313,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		if (read_vals != 2) {
 			return;
 		}
-		pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
+		// pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
 		for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
 			head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
 			hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
@@ -1330,13 +1331,13 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 						continue;
 					}
 
-					pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+					// pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
 					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
 						out_skb = skb_clone(skb, GFP_ATOMIC);
 						if (out_skb) {
 							do_output(dp, out_skb, vport->port_no, key);
 						} else {
-							pr_info("BF_DEBUG: Failed to allocate memory for bloom output operation");
+							pr_warn("BF_DEBUG: Failed to allocate memory for bloom output operation");
 						}
 					}
 				}
@@ -1361,12 +1362,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 	const struct nlattr *a;
 	int rem;
 
-	pr_info("BF_DEBUG: do_execute_actions called\n");
+	// pr_info("BF_DEBUG: do_execute_actions called\n");
 
 	for (a = attr, rem = len; rem > 0;
 	     a = nla_next(a, &rem)) {
 		int err = 0;
-		pr_info("BF_DEBUG: nla_type == %d", nla_type(a));
+		// pr_info("BF_DEBUG: nla_type == %d", nla_type(a));
 		if (unlikely(prev_port != -1)) {
 			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
 
@@ -1382,7 +1383,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			prev_port = nla_get_u32(a);
 			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
 			if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
-				pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
+				// pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
 				do_bloom_filter_forwarding(dp, skb, key);
 				prev_port = -1;
 			}
@@ -1397,7 +1398,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		}
 
 		case OVS_ACTION_ATTR_USERSPACE:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_USERSPACE");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_USERSPACE");
 			output_userspace(dp, skb, key, a, attr,
 						     len, OVS_CB(skb)->cutlen);
 			OVS_CB(skb)->cutlen = 0;
@@ -1408,7 +1409,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_MPLS:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_MPLS");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_MPLS");
 			err = push_mpls(skb, key, nla_data(a));
 			break;
 
@@ -1417,12 +1418,12 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_SHIM:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
 			err = push_shim(skb, key, nla_data(a));
 			break;
 
 		case OVS_ACTION_ATTR_POP_SHIM:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_POP_SHIM");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_POP_SHIM");
 			err = pop_shim(skb, key, nla_data(a));
 			break;
 
@@ -1476,7 +1477,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		if (unlikely(err)) {
 			kfree_skb(skb);
-			pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
+			// pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
 			return err;
 		}
 	}
@@ -1487,7 +1488,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		consume_skb(skb);
 	}
 
-	pr_info("BF_DEBUG: do_execute_actions returned\n");
+	// pr_info("BF_DEBUG: do_execute_actions returned\n");
 	return 0;
 }
 
@@ -1523,7 +1524,7 @@ int ovs_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			struct sw_flow_key *key)
 {
 	int err, level;
-	pr_info("BF_DEBUG: ovs_execute_actions called");
+	// pr_info("BF_DEBUG: ovs_execute_actions called");
 	level = __this_cpu_inc_return(exec_actions_level);
 	if (unlikely(level > OVS_RECURSION_LIMIT)) {
 		net_crit_ratelimited("ovs: recursion limit reached on datapath %s, probable configuration error\n",

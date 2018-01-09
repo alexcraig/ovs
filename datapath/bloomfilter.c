@@ -71,6 +71,7 @@ int bloom_filter_check_member(struct bloom_filter* bloom, uint16_t key)
 {
     uint16_t hits, hash_index, set_bit_index, set_byte_index;
     unsigned char mask;
+    // pr_info("BF_DEBUG: Checking key %d against bloom filter", key);
     
     if(bloom == NULL || bloom->filter_byte_array == NULL) {
         return -1;
@@ -79,6 +80,7 @@ int bloom_filter_check_member(struct bloom_filter* bloom, uint16_t key)
     hits = 0;
     for(hash_index = 0; hash_index < bloom->num_hash_functions; hash_index++) {
         set_bit_index = bloom_hashcode_uint16key((uint16_t*)(&key), hash_index, bloom->num_bits);
+	// pr_info("BF_DEBUG: Hash # = %d, Bit Index = %d", hash_index, set_bit_index);
         set_byte_index = set_bit_index >> 3;	// (x >> 3) == (x / 8)
         mask = 1 << (7 - (set_bit_index % 8));
         if(bloom->filter_byte_array[set_byte_index] & mask) {
@@ -87,8 +89,10 @@ int bloom_filter_check_member(struct bloom_filter* bloom, uint16_t key)
     }
 
     if(hits == bloom->num_hash_functions) {
+	// pr_info("BF_DEBUG: Key %d match success", key);
         return 1;
     } else {
+	// pr_info("BF_DEBUG: Key %d match failed", key);
         return 0;
     }
 }

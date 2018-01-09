@@ -2263,7 +2263,7 @@ static int __ovs_nla_copy_actions(struct net *net, const struct nlattr *attr,
 			// 0xfff6 == OFPP_BLOOM_PORTS
 			port = nla_get_u32(a);
 			if (port != 0xfff6 && port >= DP_MAX_PORTS) {
-				pr_info("BF_DEBUG: __ovs_nla_copy_actions failed port check on OVS_ACTION_ATTR_OUTPUT, port = %d", port);
+				// pr_info("BF_DEBUG: __ovs_nla_copy_actions failed port check on OVS_ACTION_ATTR_OUTPUT, port = %d", port);
 				return -EINVAL;
 			}
 			break;

@@ -2170,7 +2170,7 @@ ofctl_mod_port(struct ovs_cmdl_context *ctx)
 
     if (!strncasecmp(ctx->argv[3], "bloom-id", 8)) {
 	sscanf(ctx->argv[4], "%d", &new_bloom_id);
-	VLOG_WARN("BF_DEBUG: ofctl_port_mod read bloom identifier: %d", new_bloom_id);
+	// VLOG_WARN("BF_DEBUG: ofctl_port_mod read bloom identifier: %d", new_bloom_id);
 	pm.bloom_id = (uint16_t)new_bloom_id;
 	goto found;
     }

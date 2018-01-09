@@ -1562,13 +1562,13 @@ static int
 parse_odp_action(const char *s, const struct simap *port_names,
                  struct ofpbuf *actions)
 {
-    VLOG_WARN("BF_DEBUG: parse_odp_action: %s", s);
+    // VLOG_WARN("BF_DEBUG: parse_odp_action: %s", s);
     {
         uint32_t port;
         int n;
 
         if (ovs_scan(s, "%"SCNi32"%n", &port, &n)) {
-            VLOG_WARN("BF_DEBUG: nl_msg_put_u32 OVS_ACTION_ATTR_OUTPUT 1");
+            // VLOG_WARN("BF_DEBUG: nl_msg_put_u32 OVS_ACTION_ATTR_OUTPUT 1");
             nl_msg_put_u32(actions, OVS_ACTION_ATTR_OUTPUT, port);
             return n;
         }
@@ -1594,7 +1594,7 @@ parse_odp_action(const char *s, const struct simap *port_names,
 
         node = simap_find_len(port_names, s, len);
         if (node) {
-            VLOG_WARN("BF_DEBUG: nl_msg_put_u32 OVS_ACTION_ATTR_OUTPUT 2");
+            // VLOG_WARN("BF_DEBUG: nl_msg_put_u32 OVS_ACTION_ATTR_OUTPUT 2");
             nl_msg_put_u32(actions, OVS_ACTION_ATTR_OUTPUT, node->data);
             return len;
         }
@@ -1693,7 +1693,7 @@ parse_odp_action(const char *s, const struct simap *port_names,
             }
 
             nl_msg_put_unspec(actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_shim, sizeof act_shim);
-            VLOG_WARN("BF_DEBUG: ml_msg_put_unspec OVS_ACTION_ATTR_PUSH_SHIM");
+            // VLOG_WARN("BF_DEBUG: ml_msg_put_unspec OVS_ACTION_ATTR_PUSH_SHIM");
             n = n + 41; // Shim hex string is 40 characters + terminating ')' char
             return n;
         }
@@ -4076,8 +4076,8 @@ parse_odp_key_mask_attr(const char *s, const struct simap *port_names,
     ovs_u128 ufid;
     int len;
 
-    VLOG_WARN("BF_DEBUG: parse_odp_key_mask_attr called");
-    VLOG_WARN("BF_DEBUG: Got string: %s", s);
+    // VLOG_WARN("BF_DEBUG: parse_odp_key_mask_attr called");
+    // VLOG_WARN("BF_DEBUG: Got string: %s", s);
 
     /* Skip UFID. */
     len = odp_ufid_from_string(s, &ufid);
@@ -5391,7 +5391,7 @@ commit_masked_set_action(struct ofpbuf *odp_actions,
                          enum ovs_key_attr key_type,
                          const void *key_, const void *mask_, size_t key_size)
 {
-    VLOG_WARN("BF_DEBUG: commit_masked_set_action");
+    // VLOG_WARN("BF_DEBUG: commit_masked_set_action");
     size_t offset = nl_msg_start_nested(odp_actions,
                                         OVS_ACTION_ATTR_SET_MASKED);
     char *data = nl_msg_put_unspec_uninit(odp_actions, key_type, key_size * 2);
@@ -5527,7 +5527,7 @@ commit_mpls_action(const struct flow *flow, struct flow *base,
     int common_n = flow_count_common_mpls_labels(flow, flow_n, base, base_n,
                                                  NULL);
 
-    VLOG_WARN("BF_DEBUG: commit_mpls_action called");
+    // VLOG_WARN("BF_DEBUG: commit_mpls_action called");
 
     while (base_n > common_n) {
         if (base_n - 1 == common_n && flow_n > common_n) {
@@ -5575,7 +5575,7 @@ commit_mpls_action(const struct flow *flow, struct flow *base,
     while (base_n < flow_n) {
         struct ovs_action_push_mpls *mpls;
         
-        VLOG_WARN("BF_DEBUG: nl_msg_put_unspec_zero OVS_ACTION_ATTR_PUSH_MPLS");
+        // VLOG_WARN("BF_DEBUG: nl_msg_put_unspec_zero OVS_ACTION_ATTR_PUSH_MPLS");
         mpls = nl_msg_put_unspec_zero(odp_actions,
                                       OVS_ACTION_ATTR_PUSH_MPLS,
                                       sizeof *mpls);

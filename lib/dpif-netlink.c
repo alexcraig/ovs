@@ -2549,7 +2549,7 @@ dpif_netlink_vport_to_ofpbuf(const struct dpif_netlink_vport *vport,
     }
 
     if (vport->bloom_id != 0) {
-	VLOG_WARN("BF_DEBUG: Writing bloom id %d to netlink message", vport->bloom_id);	
+	// VLOG_WARN("BF_DEBUG: Writing bloom id %d to netlink message", vport->bloom_id);	
 	nl_msg_put_u16(buf, OVS_VPORT_ATTR_BLOOM_ID, vport->bloom_id);
     }
 

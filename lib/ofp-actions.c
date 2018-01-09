@@ -2235,7 +2235,7 @@ parse_PUSH_SHIM(char *arg, struct ofpbuf *ofpacts,
     char *shim_len_s, *error, *tail;
     char *arg_copy = malloc((strlen(arg)+1) * sizeof(char));
     char *arg_copy_orig = arg_copy;
-    VLOG_WARN("BF_DEBUG: parse_PUSH_SHIM");
+    // VLOG_WARN("BF_DEBUG: parse_PUSH_SHIM");
     strcpy(arg_copy, arg);
     push_shim = ofpact_put_PUSH_SHIM(ofpacts);
     shim_len_s = strsep(&arg_copy, ":");
@@ -2306,7 +2306,7 @@ parse_POP_SHIM(char *arg, struct ofpbuf *ofpacts,
     error = str_to_u16(arg, "pop_shim", &num_stages);
     if(!error) {
 	pop_shim->num_stages = num_stages;
-	VLOG_WARN("BF_DEBUG: parse_POP_SHIM read %d stages", pop_shim->num_stages);
+	// VLOG_WARN("BF_DEBUG: parse_POP_SHIM read %d stages", pop_shim->num_stages);
     } else {
 	free(error);
 	error = NULL;

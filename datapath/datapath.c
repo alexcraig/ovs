@@ -268,7 +268,7 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 	u64 *stats_counter;
 	u32 n_mask_hit;
 	
-	pr_info("BF_DEBUG: ovs_dp_process_packet called");
+	// pr_info("BF_DEBUG: ovs_dp_process_packet called");
 	stats = this_cpu_ptr(dp->stats_percpu);
 
 	/* Look up flow. */
@@ -291,10 +291,10 @@ void ovs_dp_process_packet(struct sk_buff *skb, struct sw_flow_key *key)
 		goto out;
 	}
 	
-	pr_info("BF_DEBUG: FOUND FLOW");
+	// pr_info("BF_DEBUG: FOUND FLOW");
 	ovs_flow_stats_update(flow, key->tp.flags, skb);
 	sf_acts = rcu_dereference(flow->sf_acts);
-        pr_info("BF_DEBUG: ovs_execute_actions called by ovs_dp_process_packet");
+        // pr_info("BF_DEBUG: ovs_execute_actions called by ovs_dp_process_packet");
 	ovs_execute_actions(dp, skb, sf_acts, key);
 
 	stats_counter = &stats->n_hit;
@@ -442,7 +442,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
 	unsigned int hlen;
 	int err, dp_ifindex;
 
-	pr_info("BF_DEBUG: queue_userspace_packet called");
+	// pr_info("BF_DEBUG: queue_userspace_packet called");
 
 	dp_ifindex = get_dpifindex(dp);
 	if (!dp_ifindex)
@@ -653,6 +653,7 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
 	OVS_CB(packet)->input_vport = input_vport;
 	sf_acts = rcu_dereference(flow->sf_acts);
 
+        // pr_info("BF_DEBUG: ovs_execute_actions called by ovs_dp_process_packet");
 	local_bh_disable();
 	err = ovs_execute_actions(dp, packet, sf_acts, &flow->key);
 	local_bh_enable();
@@ -2067,7 +2068,7 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
         uint16_t bloom_id;
 	int err;
 
-	pr_info("BF_DEBUG: ovs_vport_cmd_set called");
+	// pr_info("BF_DEBUG: ovs_vport_cmd_set called");
 
 	reply = ovs_vport_cmd_alloc_info();
 	if (!reply)
@@ -2077,13 +2078,13 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 	vport = lookup_vport(sock_net(skb->sk), info->userhdr, a);
 	err = PTR_ERR(vport);
 	if (IS_ERR(vport)) {
-		pr_info("BF_DEBUG: ERROR: lookup_vport failed!");
+		// pr_info("BF_DEBUG: ERROR: lookup_vport failed!");
 		goto exit_unlock_free;
 	}
 
 	if (a[OVS_VPORT_ATTR_TYPE] &&
 	    nla_get_u32(a[OVS_VPORT_ATTR_TYPE]) != vport->ops->type) {
-		pr_info("BF_DEBUG: Error on reading a[OVS_VPORT_ATTR_TYPE]");
+		// pr_info("BF_DEBUG: Error on reading a[OVS_VPORT_ATTR_TYPE]");
 		err = -EINVAL;
 		goto exit_unlock_free;
 	}
@@ -2102,14 +2103,14 @@ static int ovs_vport_cmd_set(struct sk_buff *skb, struct genl_info *info)
 			goto exit_unlock_free;
 	}
 
-	pr_info("BF_DEBUG: Testing for a[OVS_VPORT_ATTR_BLOOM_ID]");
+	// pr_info("BF_DEBUG: Testing for a[OVS_VPORT_ATTR_BLOOM_ID]");
 	if (a[OVS_VPORT_ATTR_BLOOM_ID]) {
 		bloom_id = nla_get_u16(a[OVS_VPORT_ATTR_BLOOM_ID]);
 		vport->bloom_id = bloom_id;
-		pr_info("BF_DEBUG: Set vport bloom ID to %d", bloom_id);
+		// pr_info("BF_DEBUG: Set vport bloom ID to %d", bloom_id);
                 goto exit_unlock_free;
         }
-	pr_info("BF_DEBUG: No OVS_VPORT_ATTR_BLOOM_ID attribute found");
+	// pr_info("BF_DEBUG: No OVS_VPORT_ATTR_BLOOM_ID attribute found");
 
 
 	err = ovs_vport_cmd_fill_info(vport, reply, info->snd_portid,

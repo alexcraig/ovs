@@ -3619,7 +3619,7 @@ xlate_bloomflow_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
     ctx->xout->slow |= SLOW_CONTROLLER;    
 
     basis = (uint32_t)random_uint16();
-    VLOG_WARN("BF_DEBUG: xlate_bloomflow_select_group basis = %d", basis);
+    // VLOG_WARN("BF_DEBUG: xlate_bloomflow_select_group basis = %d", basis);
     bucket = group_best_live_bucket(ctx, group, basis);
 
     if (bucket) {
@@ -3714,7 +3714,7 @@ xlate_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
 {
     const char *selection_method = group->up.props.selection_method;
 
-    VLOG_WARN("BF_DEBUG: xlate_select_group called");
+    // VLOG_WARN("BF_DEBUG: xlate_select_group called");
     /* Select groups may access flow keys beyond L2 in order to
      * select a bucket. Recirculate as appropriate to make this possible.
      */
@@ -4162,7 +4162,7 @@ xlate_output_action(struct xlate_ctx *ctx,
 
     ctx->nf_output_iface = NF_OUT_DROP;
 
-    VLOG_WARN("BF_DEBUG: xlate_output_action called");
+    // VLOG_WARN("BF_DEBUG: xlate_output_action called");
     switch (port) {
     case OFPP_IN_PORT:
         compose_output_action(ctx, ctx->xin->flow.in_port.ofp_port, NULL);
@@ -4172,7 +4172,7 @@ xlate_output_action(struct xlate_ctx *ctx,
                            0, may_packet_in, true);
         break;
     case OFPP_BLOOM_PORTS:
-	VLOG_WARN("BF_DEBUG: xlate_output_action got OFPP_BLOOM_PORTS for port");
+	// VLOG_WARN("BF_DEBUG: xlate_output_action got OFPP_BLOOM_PORTS for port");
 	nl_msg_put_u32(ctx->odp_actions, OVS_ACTION_ATTR_OUTPUT, OFPP_BLOOM_PORTS);
 	break;
     case OFPP_NORMAL:
@@ -4646,7 +4646,7 @@ xlate_write_actions(struct xlate_ctx *ctx, const struct ofpact_nest *a)
 static void
 xlate_action_set(struct xlate_ctx *ctx)
 {
-    VLOG_WARN("BF_DEBUG: xlate_action_set called");
+    // VLOG_WARN("BF_DEBUG: xlate_action_set called");
     uint64_t action_list_stub[1024 / 8];
     struct ofpbuf action_list = OFPBUF_STUB_INITIALIZER(action_list_stub);
     ofpacts_execute_action_set(&action_list, &ctx->action_set);
@@ -5083,6 +5083,12 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
         const struct ofpact_metadata *metadata;
         const struct ofpact_set_field *set_field;
         const struct mf_field *mf;
+	struct ofpact_push_shim *push_shim;
+        struct ovs_action_push_shim act_push_shim;
+	struct ofpact_pop_shim *pop_shim;
+	struct ovs_action_pop_shim act_pop_shim;
+
+
 
         if (ctx->error) {
             break;
@@ -5106,7 +5112,7 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             xlate_report(ctx, OFT_ACTION, "%s", ds_cstr(&s));
             ds_destroy(&s);
         }
-	VLOG_WARN("BF_DEBUG: do_xlate_actions a->type: %d", a->type);
+	// VLOG_WARN("BF_DEBUG: do_xlate_actions a->type: %d", a->type);
 
         switch (a->type) {
         case OFPACT_OUTPUT:
@@ -5337,18 +5343,16 @@ do_xlate_actions(const struct ofpact *ofpacts, size_t ofpacts_len,
             break;
 
 	case OFPACT_PUSH_SHIM:
-            VLOG_WARN("BF_DEBUG: Composing PUSH_SHIM action");
-	    struct ofpact_push_shim *push_shim = ofpact_get_PUSH_SHIM(a);
-            struct ovs_action_push_shim act_push_shim;
+            // VLOG_WARN("BF_DEBUG: Composing PUSH_SHIM action");
+	    push_shim = ofpact_get_PUSH_SHIM(a);
             act_push_shim.shim_len = push_shim->shim_len;
             memcpy(act_push_shim.shim, push_shim->shim, push_shim->shim_len);
             nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_PUSH_SHIM, &act_push_shim, sizeof act_push_shim);
 	    break;
 
         case OFPACT_POP_SHIM:
-	    VLOG_WARN("BF_DEBUG: Composing POP_SHIM action");
-	    struct ofpact_pop_shim *pop_shim = ofpact_get_POP_SHIM(a);
-            struct ovs_action_pop_shim act_pop_shim;
+	    // VLOG_WARN("BF_DEBUG: Composing POP_SHIM action");
+	    pop_shim = ofpact_get_POP_SHIM(a);
             act_pop_shim.num_stages = pop_shim->num_stages;
             nl_msg_put_unspec(ctx->odp_actions, OVS_ACTION_ATTR_POP_SHIM, &act_pop_shim, sizeof act_pop_shim);
             break;
@@ -5722,7 +5726,7 @@ xlate_actions(struct xlate_in *xin, struct xlate_out *xout)
         .recircs = RECIRC_REFS_EMPTY_INITIALIZER,
     };
 
-    VLOG_WARN("BF_DEBUG: xlate_actions called");
+    // VLOG_WARN("BF_DEBUG: xlate_actions called");
 
     struct xlate_cfg *xcfg = ovsrcu_get(struct xlate_cfg *, &xcfgp);
     struct xbridge *xbridge = xbridge_lookup(xcfg, xin->ofproto);
