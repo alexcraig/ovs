@@ -1187,11 +1187,16 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	int prev_port = -1;
 	int new_skb_len = 0;
 
+	int max_output_ports = 50;
+	int num_ports_to_output = 0;
+	int ports_to_output[50]; // TODO: Figure out how to do this without a hard limit on the number of output ports
+
 	// Process the in-packet shim header to determine the number of hash functions and number of bits in the shim bloom filter
+	input_vport = OVS_CB(skb)->input_vport;
 	ip_header = ip_hdr(skb);
 	ihl_words = ip_header->ihl & 0x0f;
 	if (ihl_words == 5) {
-		// pr_info("BF_DEBUG: No IP options field present in packet (IHL == 5)");
+		pr_info("\nBF_DEBUG BFFWD, in_vport = %s, No IP options field present in packet (IHL == 5)", ovs_vport_name(input_vport));
 		// No IP options are present, and therefore no shim header is present
 		return;
 	}
@@ -1203,7 +1208,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	stage_base = (((unsigned char*)ip_header) + 20); // 20 = IPv4 header length
 	b_filter_len = decode_uint16_32bit_elias_gamma(stage_base, 4, &b_eg_len_bits);
 	if (b_filter_len == 0) {
-		// pr_info("BF_DEBUG: No valid elias-gamma encoded value found in IP options");
+		pr_info("\nBF_DEBUG BFFWD, in_vport = %s, No valid elias-gamma encoded value found in IP options", ovs_vport_name(input_vport));
 		return; // No valid elias-gamma encoded number was found
 	}
 
@@ -1251,7 +1256,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		memcpy((void*)filter->filter_byte_array, (void*)(((unsigned char*)ip_header) + 20), ip_opt_bytes_new);
 		//pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
 	} else {
-		pr_warn("BF_DEBUG: Failed to allocate memory to store bloom filter copy");
+		pr_warn("\nBF_DEBUG BFFWD, in_vport = %s, Failed to allocate memory to store bloom filter copy", ovs_vport_name(input_vport));
 		return;
 	}
 
@@ -1313,7 +1318,8 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		if (read_vals != 2) {
 			return;
 		}
-		// pr_info("BF_DEBUG: do_bf_fwd - in_switch_no = %d, in_eth_no = %d, input_vport = %s", in_switch_no, in_eth_no, ovs_vport_name(input_vport));
+
+		// pr_info("\nBFFWD IN, in_vport = %s, in_switch_no = %d, in_eth_no = %d", ovs_vport_name(input_vport), in_switch_no, in_eth_no);
 		for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
 			head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
 			hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
@@ -1331,20 +1337,29 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 						continue;
 					}
 
-					// pr_info("BF_DEBUG: do_bf_fwd, port_name = %s, port_no = %d, bloom_id = %d", ovs_vport_name(vport), vport->port_no, vport->bloom_id);
 					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
-						out_skb = skb_clone(skb, GFP_ATOMIC);
-						if (out_skb) {
-							do_output(dp, out_skb, vport->port_no, key);
-						} else {
-							pr_warn("BF_DEBUG: Failed to allocate memory for bloom output operation");
-						}
-					}
+						// pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+						ports_to_output[num_ports_to_output] = vport->port_no;
+						num_ports_to_output++;
+					} // else {
+						// pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+					// }
 				}
 			}
 		}
 
 		free_bloom_filter(filter);
+
+		for(i = 0; i < num_ports_to_output; i++) {
+			out_skb = skb_copy(skb, GFP_ATOMIC);
+			if (out_skb) {
+				do_output(dp, out_skb, ports_to_output[i], key);
+				// pr_info("\n    BFFWD OUT, in_vport = %s, out_port_no = %d", ovs_vport_name(input_vport), ports_to_output[i]);
+				OVS_CB(skb)->cutlen = 0;
+			} else {
+				pr_warn("BFDEBUG BFFWD: Failed to allocate memory for bloom output operation");
+			}
+		}
 	}
 }
 
