@@ -1319,7 +1319,8 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 			return;
 		}
 
-		// pr_info("\nBFFWD IN, in_vport = %s, in_switch_no = %d, in_eth_no = %d", ovs_vport_name(input_vport), in_switch_no, in_eth_no);
+		pr_info("\nBFFWD IN, in_vport = %s, in_switch_no = %d, in_eth_no = %d", ovs_vport_name(input_vport), in_switch_no, in_eth_no);
+		pr_info("\nBFFWD IN, in_vport = %s, filter_len = %d (%d bits), num_hashes = %d (%d bits)", ovs_vport_name(input_vport), b_filter_len, b_eg_len_bits, k_num_hash_functions, k_eg_len_bits);
 		for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
 			head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
 			hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
@@ -1338,12 +1339,12 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 					}
 
 					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
-						// pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+						pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
 						ports_to_output[num_ports_to_output] = vport->port_no;
 						num_ports_to_output++;
-					} // else {
-						// pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
-					// }
+					} else {
+						pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+					}
 				}
 			}
 		}
@@ -1354,7 +1355,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 			out_skb = skb_copy(skb, GFP_ATOMIC);
 			if (out_skb) {
 				do_output(dp, out_skb, ports_to_output[i], key);
-				// pr_info("\n    BFFWD OUT, in_vport = %s, out_port_no = %d", ovs_vport_name(input_vport), ports_to_output[i]);
+				pr_info("\n    BFFWD OUT, in_vport = %s, out_port_no = %d", ovs_vport_name(input_vport), ports_to_output[i]);
 				OVS_CB(skb)->cutlen = 0;
 			} else {
 				pr_warn("BFDEBUG BFFWD: Failed to allocate memory for bloom output operation");
@@ -1384,7 +1385,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		int err = 0;
 		// pr_info("BF_DEBUG: nla_type == %d", nla_type(a));
 		if (unlikely(prev_port != -1)) {
-			struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
+			struct sk_buff *out_skb = skb_copy(skb, GFP_ATOMIC);
 
 			if (out_skb)
 				do_output(dp, out_skb, prev_port, key);
