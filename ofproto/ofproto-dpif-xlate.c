@@ -1658,6 +1658,7 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
         if (bucket_is_alive(ctx, bucket, 0)) {
             uint32_t score =
                 (hash_int(bucket->bucket_id, basis) & 0xffff) * bucket->weight;
+            // VLOG_WARN("BF_DEBUG: bucket_id = %d, score = %d", bucket->bucket_id, score);
             if (score >= best_score) {
                 best_bucket = bucket;
                 best_score = score;
@@ -1665,6 +1666,9 @@ group_best_live_bucket(const struct xlate_ctx *ctx,
         }
     }
 
+    //if (best_bucket) {
+    //    VLOG_WARN("BF_DEBUG: Selected bucket %d", best_bucket->bucket_id);
+    //}
     return best_bucket;
 }
 
@@ -3609,7 +3613,7 @@ xlate_default_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
     }
 }
 
-static void
+static int
 xlate_bloomflow_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
 {
     struct ofputil_bucket *bucket;
@@ -3621,13 +3625,20 @@ xlate_bloomflow_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
     basis = (uint32_t)random_uint16();
     // VLOG_WARN("BF_DEBUG: xlate_bloomflow_select_group basis = %d", basis);
     bucket = group_best_live_bucket(ctx, group, basis);
+    
+    if (bucket == NULL) {
+	VLOG_WARN("BF_DEBUG: no live bucket found by group_best_live_bucket");
+    }
 
     if (bucket) {
         xlate_group_bucket(ctx, bucket);
         xlate_group_stats(ctx, group, bucket);
+        // VLOG_WARN("BF_DEBUG: xlated group bucket");
     } else if (ctx->xin->xcache) {
         ofproto_group_unref(&group->up);
     }
+
+    return 1;
 }
 
 
@@ -3713,6 +3724,7 @@ static void
 xlate_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
 {
     const char *selection_method = group->up.props.selection_method;
+    int bloom_success;
 
     // VLOG_WARN("BF_DEBUG: xlate_select_group called");
     /* Select groups may access flow keys beyond L2 in order to
@@ -3722,17 +3734,21 @@ xlate_select_group(struct xlate_ctx *ctx, struct group_dpif *group)
         ctx_trigger_freeze(ctx);
     }
     
-    if (selection_method[0] == '\0') {
-        xlate_bloomflow_select_group(ctx, group);
-    } else if (!strcasecmp("default", selection_method)) {
-        xlate_default_select_group(ctx, group);
-    } else if (!strcasecmp("hash", selection_method)) {
-        xlate_hash_fields_select_group(ctx, group);
-    } else if (!strcasecmp("dp_hash", selection_method)) {
-        xlate_dp_hash_select_group(ctx, group);
-    } else {
-        /* Parsing of groups should ensure this never happens */
-        OVS_NOT_REACHED();
+    bloom_success = xlate_bloomflow_select_group(ctx, group);
+
+    if (!bloom_success) {
+        if (selection_method[0] == '\0') {
+            xlate_bloomflow_select_group(ctx, group);
+        } else if (!strcasecmp("default", selection_method)) {
+            xlate_default_select_group(ctx, group);
+        } else if (!strcasecmp("hash", selection_method)) {
+            xlate_hash_fields_select_group(ctx, group);
+        } else if (!strcasecmp("dp_hash", selection_method)) {
+            xlate_dp_hash_select_group(ctx, group);
+        } else {
+            /* Parsing of groups should ensure this never happens */
+            OVS_NOT_REACHED();
+        }
     }
 }
 
