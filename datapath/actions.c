@@ -205,15 +205,27 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	// TODO bloomflow: Code currently assumes IP options field in matched skb is empty,
 	// behaviour undefined if this is not the case
 
-	if (skb_cow_head(skb, push_hdr_len) < 0)
+	if (skb_cow_head(skb, push_hdr_len + 4) < 0)
 		return -ENOMEM;
 
 	// Add buffer space to the start of the SKB, and shift the ethernet + IP header
 	// left
-	skb_push(skb, push_hdr_len);
+	skb_push(skb, push_hdr_len + 4);  // 4 Bytes for VLAN tag
 	memmove(skb_mac_header(skb) - push_hdr_len, skb_mac_header(skb), skb->mac_len + (ip_hdr(skb)->ihl*4));
+	// Move just the mac header another 4 bytes left to make room for added VLAN tag
+	memmove(skb_mac_header(skb) - (push_hdr_len + 4), skb_mac_header(skb) - push_hdr_len, skb->mac_len);
+        skb->mac_len = skb->mac_len + 4;
 	skb_reset_mac_header(skb);
 	skb_set_network_header(skb, skb->mac_len);
+
+	// Add the BloomFlow VLAN tag
+	*(((char*)skb_network_header(skb)) - 6) = 0x81;
+	*(((char*)skb_network_header(skb)) - 5) = 0x00;
+	*(((char*)skb_network_header(skb)) - 4) = 0x07;
+	*(((char*)skb_network_header(skb)) - 3) = 0xfa;
+	*(((char*)skb_network_header(skb)) - 2) = 0x08;
+	*(((char*)skb_network_header(skb)) - 1) = 0x00;
+	pr_info("BF_DEBUG: push_shim added VLAN tag");
 
 	memset(skb_network_header(skb) + 20, 0, push_hdr_len);	
 	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_shim->shim_len);
@@ -1362,6 +1374,8 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 			}
 		}
 	}
+
+	consume_skb(skb);
 }
 
 /* Execute a list of actions against 'skb'. */
@@ -1387,8 +1401,15 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		if (unlikely(prev_port != -1)) {
 			struct sk_buff *out_skb = skb_copy(skb, GFP_ATOMIC);
 
-			if (out_skb)
-				do_output(dp, out_skb, prev_port, key);
+			if (out_skb) {
+				if (prev_port == 0xfff6) {
+					do_bloom_filter_forwarding(dp, out_skb, key);
+				} else {
+					do_output(dp, out_skb, prev_port, key);
+				}
+			} else {
+				pr_warn("BF_DEBUG: Failed to allocate memory for do_output operation");
+			}
 
 			OVS_CB(skb)->cutlen = 0;
 			prev_port = -1;
@@ -1397,12 +1418,15 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		switch (nla_type(a)) {
 		case OVS_ACTION_ATTR_OUTPUT:
 			prev_port = nla_get_u32(a);
-			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
-			if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
-				// pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
-				do_bloom_filter_forwarding(dp, skb, key);
-				prev_port = -1;
-			}
+			//if (prev_port == 3 || prev_port == 4) {
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
+			//}
+
+			//if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
+			//	pr_info("BF_DEBUG: Got ACTION_ATTR_OUTPUT for OFPP_BLOOM_PORTS");
+			//	do_bloom_filter_forwarding(dp, skb, key);
+			//	prev_port = -1;
+			//}
 			break;
 
 		case OVS_ACTION_ATTR_TRUNC: {
@@ -1434,7 +1458,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_SHIM:
-			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
 			err = push_shim(skb, key, nla_data(a));
 			break;
 
@@ -1445,6 +1469,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		case OVS_ACTION_ATTR_PUSH_VLAN:
 			err = push_vlan(skb, key, nla_data(a));
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_VLAN");
 			break;
 
 		case OVS_ACTION_ATTR_POP_VLAN:
@@ -1464,6 +1489,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		case OVS_ACTION_ATTR_SET:
 			err = execute_set_action(skb, key, nla_data(a));
+			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_SET");
 			break;
 
 		case OVS_ACTION_ATTR_SET_MASKED:
@@ -1493,13 +1519,18 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		if (unlikely(err)) {
 			kfree_skb(skb);
-			// pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
+			pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
 			return err;
 		}
 	}
 
 	if (prev_port != -1) {
-		do_output(dp, skb, prev_port, key);
+		if (prev_port == 0xfff6) {
+			do_bloom_filter_forwarding(dp, skb, key);
+		} else {
+			do_output(dp, skb, prev_port, key);
+		}
+
 	} else {
 		consume_skb(skb);
 	}
