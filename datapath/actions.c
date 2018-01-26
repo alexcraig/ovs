@@ -225,7 +225,7 @@ static int push_shim(struct sk_buff *skb, struct sw_flow_key *key,
 	*(((char*)skb_network_header(skb)) - 3) = 0xfa;
 	*(((char*)skb_network_header(skb)) - 2) = 0x08;
 	*(((char*)skb_network_header(skb)) - 1) = 0x00;
-	pr_info("BF_DEBUG: push_shim added VLAN tag");
+	// pr_info("BF_DEBUG: push_shim added VLAN tag");
 
 	memset(skb_network_header(skb) + 20, 0, push_hdr_len);	
 	memcpy(skb_network_header(skb) + 20, push_shim->shim, push_shim->shim_len);
@@ -1221,6 +1221,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	b_filter_len = decode_uint16_32bit_elias_gamma(stage_base, 4, &b_eg_len_bits);
 	if (b_filter_len == 0) {
 		pr_info("\nBF_DEBUG BFFWD, in_vport = %s, No valid elias-gamma encoded value found in IP options", ovs_vport_name(input_vport));
+		consume_skb(skb);
 		return; // No valid elias-gamma encoded number was found
 	}
 
@@ -1269,6 +1270,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		//pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
 	} else {
 		pr_warn("\nBF_DEBUG BFFWD, in_vport = %s, Failed to allocate memory to store bloom filter copy", ovs_vport_name(input_vport));
+		consume_skb(skb);
 		return;
 	}
 
@@ -1328,6 +1330,8 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		input_vport = OVS_CB(skb)->input_vport;
 		read_vals = sscanf(ovs_vport_name(input_vport), "s%d-eth%d", &in_switch_no, &in_eth_no);
 		if (read_vals != 2) {
+			free_bloom_filter(filter);
+			consume_skb(skb);
 			return;
 		}
 
@@ -1336,27 +1340,19 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 		for(i = 0; i < DP_VPORT_HASH_BUCKETS; i++) {
 			head = &dp->ports[i]; // vport_hash_bucket(dp, 0);
 			hlist_for_each_entry_rcu(vport, head, dp_hash_node) {
-				if (vport->bloom_id == 0) {
-					continue;
-				}
-				
-				read_vals = sscanf(ovs_vport_name(vport), "s%d-eth%d", &switch_no, &eth_no);
-				if (read_vals != 2) {
-					continue;
-				}
-	
-				if (in_switch_no == switch_no) {
-					if (in_eth_no == eth_no) {
-						continue;
+				if (vport->bloom_id != 0) {	
+					read_vals = sscanf(ovs_vport_name(vport), "s%d-eth%d", &switch_no, &eth_no);
+					if (read_vals == 2) {
+						if ((in_switch_no == switch_no) && (in_eth_no != eth_no)) {
+							if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
+								// pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+								ports_to_output[num_ports_to_output] = vport->port_no;
+								num_ports_to_output++;
+							} // else {
+								// pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+							// }
+						}
 					}
-
-					if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
-						// pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
-						ports_to_output[num_ports_to_output] = vport->port_no;
-						num_ports_to_output++;
-					} // else {
-						// pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
-					// }
 				}
 			}
 		}
@@ -1419,7 +1415,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 		case OVS_ACTION_ATTR_OUTPUT:
 			prev_port = nla_get_u32(a);
 			//if (prev_port == 3 || prev_port == 4) {
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_OUTPUT, port = %d", prev_port);
 			//}
 
 			//if (prev_port == 0xfff6) { // 0xfff6 = OFPP_BLOOM_PORTS
@@ -1458,7 +1454,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 			break;
 
 		case OVS_ACTION_ATTR_PUSH_SHIM:
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_SHIM");
 			err = push_shim(skb, key, nla_data(a));
 			break;
 
@@ -1469,7 +1465,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		case OVS_ACTION_ATTR_PUSH_VLAN:
 			err = push_vlan(skb, key, nla_data(a));
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_VLAN");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_PUSH_VLAN");
 			break;
 
 		case OVS_ACTION_ATTR_POP_VLAN:
@@ -1489,7 +1485,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		case OVS_ACTION_ATTR_SET:
 			err = execute_set_action(skb, key, nla_data(a));
-			pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_SET");
+			// pr_info("BF_DEBUG: handling OVS_ACTION_ATTR_SET");
 			break;
 
 		case OVS_ACTION_ATTR_SET_MASKED:
@@ -1519,7 +1515,7 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
 
 		if (unlikely(err)) {
 			kfree_skb(skb);
-			pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
+			// pr_info("BF_DEBUG: do_execute_actions returned ERROR\n");
 			return err;
 		}
 	}
