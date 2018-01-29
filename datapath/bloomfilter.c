@@ -67,6 +67,22 @@ struct bloom_filter* init_bloom_filter_existing_array(unsigned char* filter_byte
     return bloom;
 }
 
+struct bloom_filter* init_bloom_filter_no_alloc(struct bloom_filter* bloom, unsigned char* filter_byte_array, 
+        uint16_t num_bits, int num_hash_functions)
+{
+    uint16_t num_bytes = num_bits / 8;
+    if(num_bits % 8 > 0) {
+        num_bytes += 1;
+    }
+
+    bloom->filter_byte_array = filter_byte_array;
+    bloom->num_bits = num_bits;
+    bloom->num_bytes = num_bytes;
+    bloom->num_hash_functions = num_hash_functions;
+    bloom->buffer_ownership = 0;
+    return bloom;
+}
+
 int bloom_filter_check_member(struct bloom_filter* bloom, uint16_t key)
 {
     uint16_t hits, hash_index, set_bit_index, set_byte_index;

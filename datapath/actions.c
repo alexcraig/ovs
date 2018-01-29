@@ -1189,6 +1189,9 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	int switch_no = 0;
 	int read_vals = 0;
 
+	struct bloom_filter bloom_struct;
+        unsigned char bloom_bit_array[40];
+
 	uint8_t ihl_words, ihl_words_new, ip_opt_remaining;
 	uint16_t ip_opt_bytes, ip_opt_bytes_new, ip_opt_words, bytes_to_shift, bits_to_shift, shift_byte_index, shift_bit_index, removed_bits, i;
 	uint16_t b_filter_len, b_eg_len_bits, k_num_hash_functions, k_eg_len_bits = 0;
@@ -1264,7 +1267,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	ip_opt_bytes_new = ip_opt_bytes - (removed_bits >> 3); // removed_bits / 8
 
 	// Copy the bloom filter to a new buffer for processing before stripping it from the packet header
-	filter = init_bloom_filter(b_filter_len, k_num_hash_functions);
+	filter = init_bloom_filter_no_alloc(&bloom_struct, bloom_bit_array, b_filter_len, k_num_hash_functions);
 	if (filter) {
 		memcpy((void*)filter->filter_byte_array, (void*)(((unsigned char*)ip_header) + 20), ip_opt_bytes_new);
 		//pr_info("BF_DEBUG: Read bloom filter with num_hashes = %d, filter_len_bits = %d", filter->num_hash_functions, filter->num_bits);
@@ -1357,7 +1360,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 			}
 		}
 
-		free_bloom_filter(filter);
+		// free_bloom_filter(filter);
 
 		for(i = 0; i < num_ports_to_output; i++) {
 			out_skb = skb_copy(skb, GFP_ATOMIC);

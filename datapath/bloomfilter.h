@@ -36,6 +36,8 @@ struct bloom_filter* init_bloom_filter(uint16_t num_bits, int num_hash_functions
  */
 struct bloom_filter* init_bloom_filter_existing_array(unsigned char* filter_byte_array, uint16_t num_bits, uint16_t num_bytes, int num_hash_functions);
 
+struct bloom_filter* init_bloom_filter_no_alloc(struct bloom_filter* bloom, unsigned char* filter_byte_array, uint16_t num_bits, int num_hash_functions);
+
 /**
  * Checks if the specified key is present in the bloom filter
  *
