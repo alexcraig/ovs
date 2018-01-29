@@ -1213,6 +1213,7 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 	if (ihl_words == 5) {
 		// pr_info("\nBF_DEBUG BFFWD, in_vport = %s, No IP options field present in packet (IHL == 5)", ovs_vport_name(input_vport));
 		// No IP options are present, and therefore no shim header is present
+		consume_skb(skb);
 		return;
 	}
 
@@ -1348,12 +1349,16 @@ static void do_bloom_filter_forwarding(struct datapath *dp, struct sk_buff *skb,
 					if (read_vals == 2) {
 						if ((in_switch_no == switch_no) && (in_eth_no != eth_no)) {
 							if (bloom_filter_check_member(filter, vport->bloom_id) == 1) {
-								// pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+								//if (in_switch_no == 3) {
+								//	pr_info("\n  BFFWD PASS, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+								//}
 								ports_to_output[num_ports_to_output] = vport->port_no;
 								num_ports_to_output++;
-							} // else {
-								// pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
-							// }
+							} //else {
+							//	if (in_switch_no == 3) {
+							//		pr_info("\n  BFFWD FAIL, in_vport = %s, out_vport = %s, out_port_no = %d, bloom_id = %d", ovs_vport_name(input_vport), ovs_vport_name(vport), vport->port_no, vport->bloom_id);
+							//	}
+							//}
 						}
 					}
 				}
